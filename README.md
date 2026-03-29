@@ -11,6 +11,8 @@
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**[Live Demo](https://documind-rag-wheat.vercel.app)** | **[Deploy Backend to Render](https://render.com/deploy?repo=https://github.com/MusaevAkobirSanokulUgli/DocuMind-RAG)**
+
 Upload documents (PDF, DOCX, TXT, Markdown), ask questions in natural language, and get accurate answers with source citations — powered by local embeddings and a RAG pipeline.
 
 ---
