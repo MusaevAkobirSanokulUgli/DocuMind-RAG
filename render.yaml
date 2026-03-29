@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: documind-api
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:5000
+      - key: RagEngine__BaseUrl
+        value: https://documind-rag-engine.onrender.com
+
+  - type: web
+    name: documind-rag-engine
+    runtime: docker
+    dockerfilePath: rag-engine/Dockerfile
+    dockerContext: rag-engine
+    plan: free
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
