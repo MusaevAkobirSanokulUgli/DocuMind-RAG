@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMind RAG - Architecture Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+        a { color: #8b5cf6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero {
+            background: linear-gradient(135deg, #1a1040 0%, #1e1b4b 50%, #0f172a 100%);
+            padding: 80px 40px 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.2) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-block;
+            background: rgba(139,92,246,0.15);
+            border: 1px solid rgba(139,92,246,0.4);
+            color: #c4b5fd;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+            animation: shimmer 4s ease-in-out infinite;
+        }
+        @keyframes shimmer { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.2); } }
+        .hero-tagline { font-size: 1.2rem; color: #94a3b8; max-width: 700px; margin: 0 auto 32px; }
+        .lang-badge {
+            display: inline-block;
+            background: #3b82f6;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+        }
+        .stats-row { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; margin-top: 8px; }
+        .stat-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 24px; min-width: 120px; }
+        .stat-num { font-size: 1.6rem; font-weight: 800; color: #a78bfa; }
+        .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+        .section { padding: 56px 0; }
+        .section-title {
+            font-size: 1.7rem; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-title::after {
+            content: ''; flex: 1; height: 2px;
+            background: linear-gradient(90deg, rgba(139,92,246,0.5), transparent);
+            border-radius: 2px; margin-left: 12px;
+        }
+        .section-subtitle { color: #64748b; margin-bottom: 32px; font-size: 0.97rem; }
+
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 28px; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+        .card:hover { border-color: #8b5cf6; box-shadow: 0 0 24px rgba(139,92,246,0.12); transform: translateY(-2px); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .hero h1 { font-size: 2rem; } }
+
+        /* RAG Pipeline */
+        .pipeline {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            overflow-x: auto;
+            padding: 24px 0;
+        }
+        .pipeline-step {
+            flex: 1;
+            min-width: 130px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 0;
+            padding: 20px 16px;
+            text-align: center;
+            position: relative;
+            transition: background 0.2s;
+        }
+        .pipeline-step:first-child { border-radius: 12px 0 0 12px; }
+        .pipeline-step:last-child { border-radius: 0 12px 12px 0; }
+        .pipeline-step:hover { background: rgba(139,92,246,0.1); }
+        .pipeline-step::after {
+            content: '→';
+            position: absolute;
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #475569;
+            font-size: 1.1rem;
+            z-index: 1;
+        }
+        .pipeline-step:last-child::after { display: none; }
+        .step-icon { font-size: 1.6rem; margin-bottom: 8px; }
+        .step-title { font-size: 0.8rem; font-weight: 700; color: #f1f5f9; }
+        .step-detail { font-size: 0.7rem; color: #64748b; margin-top: 4px; }
+
+        .arch-diagram { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 40px 24px; margin: 24px 0; }
+        .arch-layer { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+        .arch-box { background: #1e293b; border: 2px solid #334155; border-radius: 12px; padding: 14px 22px; text-align: center; min-width: 160px; transition: all 0.2s; }
+        .arch-box.blue { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+        .arch-box.purple { border-color: #8b5cf6; background: rgba(139,92,246,0.08); }
+        .arch-box.green { border-color: #10b981; background: rgba(16,185,129,0.08); }
+        .arch-box.orange { border-color: #f59e0b; background: rgba(245,158,11,0.08); }
+        .arch-box.red { border-color: #ef4444; background: rgba(239,68,68,0.08); }
+        .arch-box-title { font-weight: 700; font-size: 0.9rem; color: #f1f5f9; }
+        .arch-box-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 3px; }
+        .arch-arrow { text-align: center; color: #475569; font-size: 1.4rem; margin: 4px 0; }
+        .arch-label { text-align: center; font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 8px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        thead th { background: #1e293b; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 16px; text-align: left; border-bottom: 2px solid #334155; }
+        tbody td { padding: 12px 16px; border-bottom: 1px solid #1e293b; font-size: 0.9rem; color: #cbd5e1; vertical-align: top; }
+        tbody tr:hover { background: rgba(139,92,246,0.05); }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .badge-green { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        .badge-purple { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+        .badge-orange { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+        .badge-red { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+        .code-block { background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 20px 24px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; color: #e2e8f0; overflow-x: auto; margin: 12px 0; line-height: 1.7; }
+        .code-block .comment { color: #475569; }
+        .code-block .cmd { color: #34d399; }
+        .code-block .str { color: #fbbf24; }
+
+        .feature-item { display: flex; gap: 16px; align-items: flex-start; padding: 18px 0; border-bottom: 1px solid #1e293b; }
+        .feature-item:last-child { border-bottom: none; }
+        .feature-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
+        .feature-title { font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+        .feature-desc { font-size: 0.9rem; color: #94a3b8; }
+
+        .problem-list { list-style: none; margin-top: 16px; }
+        .problem-list li { padding: 12px 0; border-bottom: 1px solid #1e293b; color: #94a3b8; display: flex; align-items: flex-start; gap: 10px; font-size: 0.95rem; }
+        .problem-list li::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+        .security-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        @media (max-width: 600px) { .security-grid { grid-template-columns: 1fr; } }
+        .security-card { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 12px; padding: 16px 18px; }
+        .security-card h4 { color: #34d399; font-size: 0.9rem; margin-bottom: 6px; }
+        .security-card p { color: #94a3b8; font-size: 0.85rem; }
+
+        .highlight-box { background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.25); border-radius: 12px; padding: 18px 22px; margin: 16px 0; }
+        .highlight-box strong { color: #a78bfa; }
+
+        footer { background: #020617; border-top: 1px solid #1e293b; padding: 32px 40px; text-align: center; color: #475569; font-size: 0.85rem; }
+        footer span { color: #8b5cf6; }
+        hr { border: none; border-top: 1px solid #1e293b; margin: 0; }
+    </style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-badge">Project 2 &nbsp;·&nbsp; RAG / Document Intelligence</div>
+    <h1>DocuMind</h1>
+    <p class="hero-tagline">Retrieval-Augmented Generation system for intelligent document Q&amp;A with source citations — runs entirely locally without external API dependencies.</p>
+    <div><span class="lang-badge">🇬🇧 English</span></div>
+    <div class="stats-row">
+        <div class="stat-item"><div class="stat-num">52</div><div class="stat-label">Files</div></div>
+        <div class="stat-item"><div class="stat-num">4,954</div><div class="stat-label">Lines of Code</div></div>
+        <div class="stat-item"><div class="stat-num">384</div><div class="stat-label">Embedding Dims</div></div>
+        <div class="stat-item"><div class="stat-num">512</div><div class="stat-label">Chunk Size (chars)</div></div>
+        <div class="stat-item"><div class="stat-num">~30ms</div><div class="stat-label">Query Latency</div></div>
+    </div>
+</section>
+
+<hr>
+
+<div class="container">
+
+    <!-- PROBLEM -->
+    <section class="section">
+        <h2 class="section-title">🎯 Problem Statement</h2>
+        <p class="section-subtitle">Why traditional document search fails for AI-powered Q&amp;A</p>
+        <div class="card">
+            <p style="color:#94a3b8; margin-bottom:16px;">Organizations accumulate vast document libraries — PDFs, Word files, technical manuals, research papers — but retrieving precise answers from these documents remains difficult. Keyword search returns too many results without context; LLMs hallucinate without grounding; and most RAG solutions require expensive cloud API calls per query.</p>
+            <ul class="problem-list">
+                <li>Keyword search returns document titles, not answers — users must read entire documents to find relevant information.</li>
+                <li>LLMs without retrieval "hallucinate" facts not in their training data, producing confidently wrong answers.</li>
+                <li>Cloud-based RAG solutions send sensitive document content to third-party APIs, creating data privacy risks.</li>
+                <li>No citation mechanism: even when AI gives a correct answer, users cannot verify which source document it came from.</li>
+                <li>High per-query cost at scale: cloud embedding APIs can cost thousands of dollars per month for large document sets.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🏗 Architecture</h2>
+        <p class="section-subtitle">Four-service architecture with a local embedding model and vector database</p>
+        <div class="arch-diagram">
+            <div class="arch-label">Client Layer</div>
+            <div class="arch-layer">
+                <div class="arch-box blue">
+                    <div class="arch-box-title">React 18 + Vite</div>
+                    <div class="arch-box-sub">Port 3001 · Document UI &amp; Analytics</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ REST API / JSON</div>
+            <div class="arch-label">Orchestration Layer</div>
+            <div class="arch-layer">
+                <div class="arch-box purple">
+                    <div class="arch-box-title">.NET 8 Web API</div>
+                    <div class="arch-box-sub">Port 5001 · Document management &amp; routing</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ REST API / JSON</div>
+            <div class="arch-label">RAG Engine Layer</div>
+            <div class="arch-layer">
+                <div class="arch-box green">
+                    <div class="arch-box-title">Python FastAPI</div>
+                    <div class="arch-box-sub">Port 8000 · Embedding &amp; retrieval</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ Vector operations</div>
+            <div class="arch-label">Persistence Layer</div>
+            <div class="arch-layer">
+                <div class="arch-box orange">
+                    <div class="arch-box-title">ChromaDB</div>
+                    <div class="arch-box-sub">HNSW vector index · persistent on disk</div>
+                </div>
+                <div class="arch-box red">
+                    <div class="arch-box-title">all-MiniLM-L6-v2</div>
+                    <div class="arch-box-sub">Local model · 384-dim embeddings</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- RAG PIPELINE -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">⚙ RAG Pipeline</h2>
+        <p class="section-subtitle">End-to-end document ingestion and query processing flow</p>
+        <div class="card" style="padding: 28px 20px;">
+            <p style="color:#94a3b8; font-size:0.9rem; margin-bottom:20px;"><strong style="color:#a78bfa;">Ingestion Pipeline</strong> — triggered when a document is uploaded:</p>
+            <div class="pipeline">
+                <div class="pipeline-step">
+                    <div class="step-icon">📄</div>
+                    <div class="step-title">Upload</div>
+                    <div class="step-detail">PDF / DOCX / TXT / MD</div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-icon">📝</div>
+                    <div class="step-title">Extract</div>
+                    <div class="step-detail">Raw text extraction</div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-icon">✂</div>
+                    <div class="step-title">Chunk</div>
+                    <div class="step-detail">512 chars, 50 overlap</div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-icon">🔢</div>
+                    <div class="step-title">Embed</div>
+                    <div class="step-detail">all-MiniLM-L6-v2</div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-icon">💾</div>
+                    <div class="step-title">Store</div>
+                    <div class="step-detail">ChromaDB HNSW</div>
+                </div>
+            </div>
+            <p style="color:#94a3b8; font-size:0.9rem; margin: 24px 0 20px;"><strong style="color:#a78bfa;">Query Pipeline</strong> — triggered on each user question:</p>
+            <div class="pipeline">
+                <div class="pipeline-step">
+                    <div class="step-icon">❓</div>
+                    <div class="step-title">Query</div>
+                    <div class="step-detail">User question</div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-icon">🔢</div>
+                    <div class="step-title">Embed</div>
+                    <div class="step-detail">Same model</div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-icon">🔍</div>
+                    <div class="step-title">Search</div>
+                    <div class="step-detail">HNSW ANN search</div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-icon">🏆</div>
+                    <div class="step-title">Rerank</div>
+                    <div class="step-detail">Score-based filter</div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-icon">💬</div>
+                    <div class="step-title">Answer</div>
+                    <div class="step-detail">With citations</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TECH STACK -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🛠 Technology Stack</h2>
+        <p class="section-subtitle">Full-stack with a focus on local, privacy-preserving AI</p>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table>
+                <thead>
+                    <tr><th>Layer</th><th>Technology</th><th>Version</th><th>Purpose</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">Frontend</span></td><td>React</td><td>18</td><td>Document upload UI &amp; Q&amp;A chat</td></tr>
+                    <tr><td><span class="badge badge-blue">Frontend</span></td><td>Vite</td><td>5.x</td><td>Lightning-fast dev server &amp; bundler</td></tr>
+                    <tr><td><span class="badge badge-blue">Frontend</span></td><td>TypeScript</td><td>5.x</td><td>Type safety across the client</td></tr>
+                    <tr><td><span class="badge badge-blue">Frontend</span></td><td>Recharts</td><td>2.x</td><td>Analytics dashboard charts</td></tr>
+                    <tr><td><span class="badge badge-purple">Backend</span></td><td>.NET</td><td>8.0</td><td>REST API, document storage orchestration</td></tr>
+                    <tr><td><span class="badge badge-purple">Backend</span></td><td>Entity Framework Core</td><td>8.x</td><td>Document metadata persistence</td></tr>
+                    <tr><td><span class="badge badge-green">RAG Engine</span></td><td>Python FastAPI</td><td>0.110+</td><td>Async embedding and retrieval service</td></tr>
+                    <tr><td><span class="badge badge-green">RAG Engine</span></td><td>sentence-transformers</td><td>2.x</td><td>all-MiniLM-L6-v2 (384 dims, local)</td></tr>
+                    <tr><td><span class="badge badge-green">RAG Engine</span></td><td>ChromaDB</td><td>0.4+</td><td>HNSW vector store with persistence</td></tr>
+                    <tr><td><span class="badge badge-orange">Parsing</span></td><td>PyMuPDF / python-docx</td><td>latest</td><td>PDF and DOCX text extraction</td></tr>
+                    <tr><td><span class="badge badge-orange">Infra</span></td><td>Docker &amp; Compose</td><td>24+</td><td>Multi-service container orchestration</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- KEY FEATURES -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">✨ Key Features</h2>
+        <p class="section-subtitle">Intelligent document Q&amp;A with no external API dependencies</p>
+        <div class="grid-2">
+            <div class="card">
+                <div class="feature-item">
+                    <span class="feature-icon">📂</span>
+                    <div><div class="feature-title">Multi-format Document Upload</div><div class="feature-desc">Supports PDF, DOCX, TXT, and Markdown. Text extraction is format-aware: PyMuPDF for PDFs, python-docx for Word documents.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✂</span>
+                    <div><div class="feature-title">Recursive Chunking</div><div class="feature-desc">Documents split into 512-character chunks with 50-character overlap. Overlap prevents context loss at chunk boundaries for better answer quality.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔢</span>
+                    <div><div class="feature-title">Local Embeddings</div><div class="feature-desc">Uses <code style="color:#a78bfa;background:#0f172a;padding:1px 6px;border-radius:4px;">all-MiniLM-L6-v2</code> (384 dimensions) running locally. Zero external API calls — your documents never leave your infrastructure.</div></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="feature-item">
+                    <span class="feature-icon">🔍</span>
+                    <div><div class="feature-title">HNSW Vector Search</div><div class="feature-desc">ChromaDB's HNSW (Hierarchical Navigable Small World) index enables approximate nearest-neighbour search at 30–100ms latency without an LLM.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📎</span>
+                    <div><div class="feature-title">Source Citations</div><div class="feature-desc">Every answer includes citations linking back to the exact source document and chunk. Users can verify every claim against the original text.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <div><div class="feature-title">Analytics Dashboard</div><div class="feature-desc">Recharts-powered analytics showing query volume, top documents, average relevance scores, and query latency trends over time.</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="highlight-box" style="margin-top:20px;">
+            <strong>No external API dependencies:</strong> The embedding model runs locally using sentence-transformers. Query latency is approximately 30–100ms without an LLM — adding an LLM generation step would add 1–5 seconds depending on hardware.
+        </div>
+    </section>
+
+    <!-- API ENDPOINTS -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🔌 API Endpoints</h2>
+        <p class="section-subtitle">REST endpoints across the .NET 8 orchestration layer and Python FastAPI RAG engine</p>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table>
+                <thead>
+                    <tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Service</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/api/documents/upload</td><td>Upload a document (multipart/form-data)</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/documents</td><td>List all uploaded documents with metadata</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/documents/:id</td><td>Get a single document and its chunks</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-red">DELETE</span></td><td>/api/documents/:id</td><td>Delete document and remove its vectors</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/api/query</td><td>Submit a natural language question</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/analytics/stats</td><td>Query counts, latency, top documents</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/rag/ingest</td><td>Ingest document chunks into ChromaDB</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/rag/query</td><td>Embed query and run vector search</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-red">DELETE</span></td><td>/rag/document/:id</td><td>Remove all vectors for a document</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/rag/health</td><td>RAG engine health and model status</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/rag/collections</td><td>List ChromaDB collections and sizes</td><td>FastAPI</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- QUICK START -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🚀 Quick Start</h2>
+        <p class="section-subtitle">Get DocuMind running — the embedding model downloads automatically on first start</p>
+        <div class="card">
+            <p style="color:#94a3b8; margin-bottom:12px;"><strong style="color:#f1f5f9;">Step 1:</strong> Clone and enter the project</p>
+            <div class="code-block">
+<span class="cmd">git clone</span> https://github.com/your-org/rag-documind.git
+<span class="cmd">cd</span> rag-documind
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">Step 2:</strong> Start all services (model downloads on first run ~90 MB)</p>
+            <div class="code-block">
+<span class="cmd">docker compose up</span> --build -d
+<span class="comment"># Services starting:</span>
+<span class="comment">#  ✓ frontend    → http://localhost:3001</span>
+<span class="comment">#  ✓ dotnet-api  → http://localhost:5001</span>
+<span class="comment">#  ✓ rag-engine  → http://localhost:8000</span>
+<span class="comment">#  ✓ chromadb    → http://localhost:8001 (internal)</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">Step 3:</strong> Upload a document via API</p>
+            <div class="code-block">
+<span class="cmd">curl</span> -X POST http://localhost:5001/api/documents/upload \
+  -F <span class="str">"file=@my_document.pdf"</span> \
+  -F <span class="str">"title=My Document"</span>
+<span class="comment"># Returns: {"id": "abc123", "chunks": 42, "status": "indexed"}</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">Step 4:</strong> Ask a question</p>
+            <div class="code-block">
+<span class="cmd">curl</span> -X POST http://localhost:5001/api/query \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"question": "What are the main findings?", "top_k": 5}'</span>
+<span class="comment"># Returns: {"answer": "...", "citations": [{"doc": "...", "chunk": "..."}]}</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">Step 5:</strong> Open the UI at <a href="http://localhost:3001">http://localhost:3001</a></p>
+        </div>
+    </section>
+
+    <!-- SECURITY -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🔒 Security Considerations</h2>
+        <p class="section-subtitle">Privacy-first design with local model execution</p>
+        <div class="security-grid">
+            <div class="security-card">
+                <h4>🏠 Local Model Execution</h4>
+                <p>The all-MiniLM-L6-v2 model runs entirely on-premises. Document content and query text never leave your infrastructure.</p>
+            </div>
+            <div class="security-card">
+                <h4>📁 File Type Validation</h4>
+                <p>Uploaded files are validated against an allow-list (PDF, DOCX, TXT, MD). File contents are inspected beyond extension — MIME type is checked.</p>
+            </div>
+            <div class="security-card">
+                <h4>📏 File Size Limits</h4>
+                <p>Maximum upload size is enforced at the API gateway level (default 50 MB). Large files are rejected before reaching the parsing layer.</p>
+            </div>
+            <div class="security-card">
+                <h4>🗂 Vector Isolation</h4>
+                <p>Each document's vectors are stored in a named ChromaDB collection. Deleting a document removes its vectors completely from the index.</p>
+            </div>
+            <div class="security-card">
+                <h4>🔗 Citation Integrity</h4>
+                <p>Every answer includes chunk-level citations that map directly to source text, enabling users to verify AI-generated answers against originals.</p>
+            </div>
+            <div class="security-card">
+                <h4>🐳 Network Isolation</h4>
+                <p>ChromaDB runs on an internal Docker network and is not exposed to the host. Only the frontend and .NET API are accessible externally.</p>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<footer>
+    <p>DocuMind &nbsp;·&nbsp; AI/ML Portfolio &nbsp;·&nbsp; Built with <span>Python FastAPI</span>, <span>.NET 8</span>, <span>ChromaDB</span>, <span>sentence-transformers</span></p>
+    <p style="margin-top:8px; color:#334155;">Documentation generated for portfolio demonstration purposes.</p>
+</footer>
+
+</body>
+</html>

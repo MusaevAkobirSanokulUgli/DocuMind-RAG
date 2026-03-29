@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMind RAG - 아키텍처 문서</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.7; }
+        a { color: #8b5cf6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero {
+            background: linear-gradient(135deg, #1a1040 0%, #1e1b4b 50%, #0f172a 100%);
+            padding: 80px 40px 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.2) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-block;
+            background: rgba(139,92,246,0.15);
+            border: 1px solid rgba(139,92,246,0.4);
+            color: #c4b5fd;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+            animation: shimmer 4s ease-in-out infinite;
+        }
+        @keyframes shimmer { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.2); } }
+        .hero-tagline { font-size: 1.15rem; color: #94a3b8; max-width: 720px; margin: 0 auto 32px; }
+        .lang-badge {
+            display: inline-block;
+            background: #ef4444;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+        }
+        .stats-row { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; margin-top: 8px; }
+        .stat-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 24px; min-width: 120px; }
+        .stat-num { font-size: 1.6rem; font-weight: 800; color: #a78bfa; }
+        .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+        .section { padding: 56px 0; }
+        .section-title {
+            font-size: 1.7rem; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-title::after {
+            content: ''; flex: 1; height: 2px;
+            background: linear-gradient(90deg, rgba(139,92,246,0.5), transparent);
+            border-radius: 2px; margin-left: 12px;
+        }
+        .section-subtitle { color: #64748b; margin-bottom: 32px; font-size: 0.97rem; }
+
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 28px; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+        .card:hover { border-color: #8b5cf6; box-shadow: 0 0 24px rgba(139,92,246,0.12); transform: translateY(-2px); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } .hero h1 { font-size: 2rem; } }
+
+        .pipeline { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 24px 0; }
+        .pipeline-step { flex: 1; min-width: 130px; background: #1e293b; border: 1px solid #334155; border-radius: 0; padding: 20px 16px; text-align: center; position: relative; transition: background 0.2s; }
+        .pipeline-step:first-child { border-radius: 12px 0 0 12px; }
+        .pipeline-step:last-child { border-radius: 0 12px 12px 0; }
+        .pipeline-step:hover { background: rgba(139,92,246,0.1); }
+        .pipeline-step::after { content: '→'; position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: #475569; font-size: 1.1rem; z-index: 1; }
+        .pipeline-step:last-child::after { display: none; }
+        .step-icon { font-size: 1.6rem; margin-bottom: 8px; }
+        .step-title { font-size: 0.8rem; font-weight: 700; color: #f1f5f9; }
+        .step-detail { font-size: 0.7rem; color: #64748b; margin-top: 4px; }
+
+        .arch-diagram { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 40px 24px; margin: 24px 0; }
+        .arch-layer { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+        .arch-box { background: #1e293b; border: 2px solid #334155; border-radius: 12px; padding: 14px 22px; text-align: center; min-width: 160px; transition: all 0.2s; }
+        .arch-box.blue { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+        .arch-box.purple { border-color: #8b5cf6; background: rgba(139,92,246,0.08); }
+        .arch-box.green { border-color: #10b981; background: rgba(16,185,129,0.08); }
+        .arch-box.orange { border-color: #f59e0b; background: rgba(245,158,11,0.08); }
+        .arch-box.red { border-color: #ef4444; background: rgba(239,68,68,0.08); }
+        .arch-box-title { font-weight: 700; font-size: 0.9rem; color: #f1f5f9; }
+        .arch-box-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 3px; }
+        .arch-arrow { text-align: center; color: #475569; font-size: 1.4rem; margin: 4px 0; }
+        .arch-label { text-align: center; font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 8px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        thead th { background: #1e293b; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 16px; text-align: left; border-bottom: 2px solid #334155; }
+        tbody td { padding: 12px 16px; border-bottom: 1px solid #1e293b; font-size: 0.9rem; color: #cbd5e1; vertical-align: top; }
+        tbody tr:hover { background: rgba(139,92,246,0.05); }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .badge-green { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        .badge-purple { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+        .badge-orange { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+        .badge-red { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+        .code-block { background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 20px 24px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; color: #e2e8f0; overflow-x: auto; margin: 12px 0; line-height: 1.7; }
+        .code-block .comment { color: #475569; }
+        .code-block .cmd { color: #34d399; }
+        .code-block .str { color: #fbbf24; }
+
+        .feature-item { display: flex; gap: 16px; align-items: flex-start; padding: 18px 0; border-bottom: 1px solid #1e293b; }
+        .feature-item:last-child { border-bottom: none; }
+        .feature-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
+        .feature-title { font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+        .feature-desc { font-size: 0.9rem; color: #94a3b8; }
+
+        .problem-list { list-style: none; margin-top: 16px; }
+        .problem-list li { padding: 12px 0; border-bottom: 1px solid #1e293b; color: #94a3b8; display: flex; align-items: flex-start; gap: 10px; font-size: 0.95rem; }
+        .problem-list li::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+        .security-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        @media (max-width: 600px) { .security-grid { grid-template-columns: 1fr; } }
+        .security-card { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 12px; padding: 16px 18px; }
+        .security-card h4 { color: #34d399; font-size: 0.9rem; margin-bottom: 6px; }
+        .security-card p { color: #94a3b8; font-size: 0.85rem; }
+
+        .highlight-box { background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.25); border-radius: 12px; padding: 18px 22px; margin: 16px 0; }
+        .highlight-box strong { color: #a78bfa; }
+
+        footer { background: #020617; border-top: 1px solid #1e293b; padding: 32px 40px; text-align: center; color: #475569; font-size: 0.85rem; }
+        footer span { color: #8b5cf6; }
+        hr { border: none; border-top: 1px solid #1e293b; margin: 0; }
+    </style>
+</head>
+<body>
+
+<!-- 히어로 섹션 -->
+<section class="hero">
+    <div class="hero-badge">프로젝트 2 &nbsp;·&nbsp; RAG / 문서 인텔리전스</div>
+    <h1>DocuMind</h1>
+    <p class="hero-tagline">출처 인용과 함께하는 지능형 문서 Q&amp;A를 위한 RAG 시스템 — 외부 API 의존성 없이 완전히 로컬에서 실행됩니다.</p>
+    <div><span class="lang-badge">🇰🇷 한국어</span></div>
+    <div class="stats-row">
+        <div class="stat-item"><div class="stat-num">52</div><div class="stat-label">파일</div></div>
+        <div class="stat-item"><div class="stat-num">4,954</div><div class="stat-label">코드 라인</div></div>
+        <div class="stat-item"><div class="stat-num">384</div><div class="stat-label">임베딩 차원</div></div>
+        <div class="stat-item"><div class="stat-num">512</div><div class="stat-label">청크 크기(문자)</div></div>
+        <div class="stat-item"><div class="stat-num">~30ms</div><div class="stat-label">쿼리 지연시간</div></div>
+    </div>
+</section>
+
+<hr>
+
+<div class="container">
+
+    <!-- 문제 정의 -->
+    <section class="section">
+        <h2 class="section-title">🎯 문제 정의</h2>
+        <p class="section-subtitle">기존 문서 검색이 AI 기반 Q&amp;A에 실패하는 이유</p>
+        <div class="card">
+            <p style="color:#94a3b8; margin-bottom:16px;">조직들은 방대한 문서 라이브러리를 축적합니다 — PDF, Word 파일, 기술 매뉴얼, 연구 논문 — 하지만 이러한 문서에서 정확한 답변을 검색하는 것은 여전히 어렵습니다. 키워드 검색은 컨텍스트 없이 너무 많은 결과를 반환하고, LLM은 근거 없이 환각을 일으키며, 대부분의 RAG 솔루션은 쿼리당 비싼 클라우드 API 호출을 필요로 합니다.</p>
+            <ul class="problem-list">
+                <li>키워드 검색은 답변이 아닌 문서 제목을 반환합니다 — 사용자가 관련 정보를 찾으려면 전체 문서를 읽어야 합니다.</li>
+                <li>검색 없는 LLM은 훈련 데이터에 없는 사실을 "환각"하여 자신 있게 틀린 답변을 제공합니다.</li>
+                <li>클라우드 기반 RAG 솔루션은 민감한 문서 내용을 서드파티 API에 전송하여 데이터 프라이버시 위험을 초래합니다.</li>
+                <li>인용 메커니즘 부재: AI가 정확한 답변을 제공하더라도 사용자는 어느 소스 문서에서 왔는지 확인할 수 없습니다.</li>
+                <li>대규모에서의 높은 쿼리 비용: 클라우드 임베딩 API는 대용량 문서 세트에서 월 수천 달러가 들 수 있습니다.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- 아키텍처 -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🏗 아키텍처</h2>
+        <p class="section-subtitle">로컬 임베딩 모델과 벡터 데이터베이스를 갖춘 4개 서비스 아키텍처</p>
+        <div class="arch-diagram">
+            <div class="arch-label">클라이언트 계층</div>
+            <div class="arch-layer">
+                <div class="arch-box blue">
+                    <div class="arch-box-title">React 18 + Vite</div>
+                    <div class="arch-box-sub">포트 3001 · 문서 UI & 분석</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ REST API / JSON</div>
+            <div class="arch-label">오케스트레이션 계층</div>
+            <div class="arch-layer">
+                <div class="arch-box purple">
+                    <div class="arch-box-title">.NET 8 Web API</div>
+                    <div class="arch-box-sub">포트 5001 · 문서 관리 & 라우팅</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ REST API / JSON</div>
+            <div class="arch-label">RAG 엔진 계층</div>
+            <div class="arch-layer">
+                <div class="arch-box green">
+                    <div class="arch-box-title">Python FastAPI</div>
+                    <div class="arch-box-sub">포트 8000 · 임베딩 & 검색</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ 벡터 연산</div>
+            <div class="arch-label">영속화 계층</div>
+            <div class="arch-layer">
+                <div class="arch-box orange">
+                    <div class="arch-box-title">ChromaDB</div>
+                    <div class="arch-box-sub">HNSW 벡터 인덱스 · 디스크 영속화</div>
+                </div>
+                <div class="arch-box red">
+                    <div class="arch-box-title">all-MiniLM-L6-v2</div>
+                    <div class="arch-box-sub">로컬 모델 · 384차원 임베딩</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- RAG 파이프라인 -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">⚙ RAG 파이프라인</h2>
+        <p class="section-subtitle">문서 수집 및 쿼리 처리의 엔드투엔드 흐름</p>
+        <div class="card" style="padding: 28px 20px;">
+            <p style="color:#94a3b8; font-size:0.9rem; margin-bottom:20px;"><strong style="color:#a78bfa;">수집 파이프라인</strong> — 문서 업로드 시 트리거됩니다:</p>
+            <div class="pipeline">
+                <div class="pipeline-step"><div class="step-icon">📄</div><div class="step-title">업로드</div><div class="step-detail">PDF / DOCX / TXT / MD</div></div>
+                <div class="pipeline-step"><div class="step-icon">📝</div><div class="step-title">추출</div><div class="step-detail">원시 텍스트 추출</div></div>
+                <div class="pipeline-step"><div class="step-icon">✂</div><div class="step-title">청킹</div><div class="step-detail">512자, 50자 겹침</div></div>
+                <div class="pipeline-step"><div class="step-icon">🔢</div><div class="step-title">임베딩</div><div class="step-detail">all-MiniLM-L6-v2</div></div>
+                <div class="pipeline-step"><div class="step-icon">💾</div><div class="step-title">저장</div><div class="step-detail">ChromaDB HNSW</div></div>
+            </div>
+            <p style="color:#94a3b8; font-size:0.9rem; margin: 24px 0 20px;"><strong style="color:#a78bfa;">쿼리 파이프라인</strong> — 각 사용자 질문에 트리거됩니다:</p>
+            <div class="pipeline">
+                <div class="pipeline-step"><div class="step-icon">❓</div><div class="step-title">질문</div><div class="step-detail">사용자 질문</div></div>
+                <div class="pipeline-step"><div class="step-icon">🔢</div><div class="step-title">임베딩</div><div class="step-detail">동일 모델</div></div>
+                <div class="pipeline-step"><div class="step-icon">🔍</div><div class="step-title">검색</div><div class="step-detail">HNSW ANN 검색</div></div>
+                <div class="pipeline-step"><div class="step-icon">🏆</div><div class="step-title">재순위</div><div class="step-detail">점수 기반 필터</div></div>
+                <div class="pipeline-step"><div class="step-icon">💬</div><div class="step-title">답변</div><div class="step-detail">인용과 함께</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 기술 스택 -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🛠 기술 스택</h2>
+        <p class="section-subtitle">로컬, 프라이버시 보호 AI에 중점을 둔 풀 스택</p>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table>
+                <thead>
+                    <tr><th>계층</th><th>기술</th><th>버전</th><th>목적</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">프론트엔드</span></td><td>React</td><td>18</td><td>문서 업로드 UI 및 Q&amp;A 채팅</td></tr>
+                    <tr><td><span class="badge badge-blue">프론트엔드</span></td><td>Vite</td><td>5.x</td><td>초고속 개발 서버 및 번들러</td></tr>
+                    <tr><td><span class="badge badge-blue">프론트엔드</span></td><td>TypeScript</td><td>5.x</td><td>클라이언트 전반의 타입 안전성</td></tr>
+                    <tr><td><span class="badge badge-blue">프론트엔드</span></td><td>Recharts</td><td>2.x</td><td>분석 대시보드 차트</td></tr>
+                    <tr><td><span class="badge badge-purple">백엔드</span></td><td>.NET</td><td>8.0</td><td>REST API, 문서 저장 오케스트레이션</td></tr>
+                    <tr><td><span class="badge badge-purple">백엔드</span></td><td>Entity Framework Core</td><td>8.x</td><td>문서 메타데이터 영속화</td></tr>
+                    <tr><td><span class="badge badge-green">RAG 엔진</span></td><td>Python FastAPI</td><td>0.110+</td><td>비동기 임베딩 및 검색 서비스</td></tr>
+                    <tr><td><span class="badge badge-green">RAG 엔진</span></td><td>sentence-transformers</td><td>2.x</td><td>all-MiniLM-L6-v2 (384차원, 로컬)</td></tr>
+                    <tr><td><span class="badge badge-green">RAG 엔진</span></td><td>ChromaDB</td><td>0.4+</td><td>영속화 지원 HNSW 벡터 저장소</td></tr>
+                    <tr><td><span class="badge badge-orange">파싱</span></td><td>PyMuPDF / python-docx</td><td>latest</td><td>PDF 및 DOCX 텍스트 추출</td></tr>
+                    <tr><td><span class="badge badge-orange">인프라</span></td><td>Docker &amp; Compose</td><td>24+</td><td>멀티 서비스 컨테이너 오케스트레이션</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 주요 기능 -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">✨ 주요 기능</h2>
+        <p class="section-subtitle">외부 API 의존성 없는 지능형 문서 Q&amp;A</p>
+        <div class="grid-2">
+            <div class="card">
+                <div class="feature-item">
+                    <span class="feature-icon">📂</span>
+                    <div><div class="feature-title">다중 형식 문서 업로드</div><div class="feature-desc">PDF, DOCX, TXT, Markdown을 지원합니다. 텍스트 추출은 형식에 맞게 처리됩니다: PDF에는 PyMuPDF, Word 문서에는 python-docx.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✂</span>
+                    <div><div class="feature-title">재귀적 청킹</div><div class="feature-desc">문서가 50자 겹침이 있는 512자 청크로 분할됩니다. 겹침은 청크 경계에서의 컨텍스트 손실을 방지합니다.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔢</span>
+                    <div><div class="feature-title">로컬 임베딩</div><div class="feature-desc">로컬에서 실행되는 <code style="color:#a78bfa;background:#0f172a;padding:1px 6px;border-radius:4px;">all-MiniLM-L6-v2</code>(384차원)를 사용합니다. 외부 API 호출 제로 — 문서가 인프라를 벗어나지 않습니다.</div></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="feature-item">
+                    <span class="feature-icon">🔍</span>
+                    <div><div class="feature-title">HNSW 벡터 검색</div><div class="feature-desc">ChromaDB의 HNSW 인덱스가 LLM 없이 30–100ms 지연시간으로 근사 최근접 이웃 검색을 가능하게 합니다.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📎</span>
+                    <div><div class="feature-title">출처 인용</div><div class="feature-desc">모든 답변은 정확한 소스 문서와 청크로 연결되는 인용을 포함합니다. 사용자는 모든 주장을 원본 텍스트와 대조 검증할 수 있습니다.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <div><div class="feature-title">분석 대시보드</div><div class="feature-desc">쿼리 볼륨, 상위 문서, 평균 관련성 점수, 시간에 따른 쿼리 지연시간 추세를 보여주는 Recharts 기반 분석.</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="highlight-box" style="margin-top:20px;">
+            <strong>외부 API 의존성 없음:</strong> 임베딩 모델은 sentence-transformers를 사용하여 로컬에서 실행됩니다. 쿼리 지연시간은 LLM 없이 약 30–100ms입니다 — LLM 생성 단계를 추가하면 하드웨어에 따라 1–5초가 추가됩니다.
+        </div>
+    </section>
+
+    <!-- API 엔드포인트 -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🔌 API 엔드포인트</h2>
+        <p class="section-subtitle">.NET 8 오케스트레이션 계층과 Python FastAPI RAG 엔진의 REST 엔드포인트</p>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table>
+                <thead>
+                    <tr><th>메서드</th><th>엔드포인트</th><th>설명</th><th>서비스</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/api/documents/upload</td><td>문서 업로드 (multipart/form-data)</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/documents</td><td>메타데이터와 함께 모든 업로드 문서 목록</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/documents/:id</td><td>단일 문서와 청크 조회</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-red">DELETE</span></td><td>/api/documents/:id</td><td>문서 삭제 및 벡터 제거</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/api/query</td><td>자연어 질문 제출</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/analytics/stats</td><td>쿼리 수, 지연시간, 상위 문서</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/rag/ingest</td><td>문서 청크를 ChromaDB에 수집</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/rag/query</td><td>쿼리 임베딩 및 벡터 검색 실행</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-red">DELETE</span></td><td>/rag/document/:id</td><td>문서의 모든 벡터 제거</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/rag/health</td><td>RAG 엔진 상태 및 모델 상태</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/rag/collections</td><td>ChromaDB 컬렉션과 크기 목록</td><td>FastAPI</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 빠른 시작 -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🚀 빠른 시작</h2>
+        <p class="section-subtitle">DocuMind 실행하기 — 임베딩 모델은 첫 실행 시 자동으로 다운로드됩니다</p>
+        <div class="card">
+            <p style="color:#94a3b8; margin-bottom:12px;"><strong style="color:#f1f5f9;">1단계:</strong> 복제 및 프로젝트 진입</p>
+            <div class="code-block">
+<span class="cmd">git clone</span> https://github.com/your-org/rag-documind.git
+<span class="cmd">cd</span> rag-documind
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">2단계:</strong> 모든 서비스 시작 (첫 실행 시 모델 ~90 MB 다운로드)</p>
+            <div class="code-block">
+<span class="cmd">docker compose up</span> --build -d
+<span class="comment"># 서비스 시작 중:</span>
+<span class="comment">#  ✓ frontend    → http://localhost:3001</span>
+<span class="comment">#  ✓ dotnet-api  → http://localhost:5001</span>
+<span class="comment">#  ✓ rag-engine  → http://localhost:8000</span>
+<span class="comment">#  ✓ chromadb    → http://localhost:8001 (내부)</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">3단계:</strong> API를 통해 문서 업로드</p>
+            <div class="code-block">
+<span class="cmd">curl</span> -X POST http://localhost:5001/api/documents/upload \
+  -F <span class="str">"file=@my_document.pdf"</span> \
+  -F <span class="str">"title=내 문서"</span>
+<span class="comment"># 반환: {"id": "abc123", "chunks": 42, "status": "indexed"}</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">4단계:</strong> 질문하기</p>
+            <div class="code-block">
+<span class="cmd">curl</span> -X POST http://localhost:5001/api/query \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"question": "주요 결과는 무엇인가요?", "top_k": 5}'</span>
+<span class="comment"># 반환: {"answer": "...", "citations": [{"doc": "...", "chunk": "..."}]}</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">5단계:</strong> <a href="http://localhost:3001">http://localhost:3001</a>에서 UI 열기</p>
+        </div>
+    </section>
+
+    <!-- 보안 고려사항 -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🔒 보안 고려사항</h2>
+        <p class="section-subtitle">로컬 모델 실행을 통한 프라이버시 우선 설계</p>
+        <div class="security-grid">
+            <div class="security-card">
+                <h4>🏠 로컬 모델 실행</h4>
+                <p>all-MiniLM-L6-v2 모델은 완전히 온프레미스에서 실행됩니다. 문서 내용과 쿼리 텍스트는 인프라를 벗어나지 않습니다.</p>
+            </div>
+            <div class="security-card">
+                <h4>📁 파일 유형 검증</h4>
+                <p>업로드된 파일은 허용 목록(PDF, DOCX, TXT, MD)에 대해 검증됩니다. 파일 내용은 확장자 이상으로 검사됩니다 — MIME 유형도 확인됩니다.</p>
+            </div>
+            <div class="security-card">
+                <h4>📏 파일 크기 제한</h4>
+                <p>최대 업로드 크기는 API 게이트웨이 수준에서 적용됩니다(기본값 50 MB). 큰 파일은 파싱 계층에 도달하기 전에 거부됩니다.</p>
+            </div>
+            <div class="security-card">
+                <h4>🗂 벡터 격리</h4>
+                <p>각 문서의 벡터는 명명된 ChromaDB 컬렉션에 저장됩니다. 문서를 삭제하면 해당 벡터가 인덱스에서 완전히 제거됩니다.</p>
+            </div>
+            <div class="security-card">
+                <h4>🔗 인용 무결성</h4>
+                <p>모든 답변은 사용자가 AI 생성 답변을 원본과 대조 검증할 수 있는 청크 수준 인용을 포함합니다.</p>
+            </div>
+            <div class="security-card">
+                <h4>🐳 네트워크 격리</h4>
+                <p>ChromaDB는 내부 Docker 네트워크에서 실행되며 호스트에 노출되지 않습니다. 프론트엔드와 .NET API만 외부에서 접근 가능합니다.</p>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<footer>
+    <p>DocuMind &nbsp;·&nbsp; AI/ML 포트폴리오 &nbsp;·&nbsp; <span>Python FastAPI</span>, <span>.NET 8</span>, <span>ChromaDB</span>, <span>sentence-transformers</span>로 구축됨</p>
+    <p style="margin-top:8px; color:#334155;">포트폴리오 시연을 위해 생성된 문서입니다.</p>
+</footer>
+
+</body>
+</html>

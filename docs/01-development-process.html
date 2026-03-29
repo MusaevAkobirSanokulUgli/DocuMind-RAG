@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuMind RAG - Development Process & Architecture</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      padding-top: 56px;
+    }
+    /* ── Language Bar ── */
+    .lang-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+    .lang-bar-label {
+      font-size: 12px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-right: 4px;
+    }
+    .lang-btn {
+      background: transparent;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 4px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .lang-btn:hover { background: #334155; color: #e2e8f0; }
+    .lang-btn.active {
+      background: #6366f1;
+      border-color: #6366f1;
+      color: #fff;
+      font-weight: 600;
+    }
+    /* ── Layout ── */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 48px 0 36px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 40px;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: #312e81;
+      color: #a5b4fc;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #f1f5f9;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+    .hero h1 span { color: #6366f1; }
+    .hero p {
+      color: #94a3b8;
+      font-size: 1rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    /* ── Section headings ── */
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 40px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #334155;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2 .icon { font-size: 1.1rem; }
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #c7d2fe;
+      margin: 24px 0 10px;
+    }
+    p { margin-bottom: 12px; color: #cbd5e1; }
+    /* ── Cards & Grids ── */
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-weight: 700;
+      color: #a5b4fc;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 700px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 1.6rem; }
+    }
+    /* ── Stat boxes ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 700px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat-box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-box .num {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #6366f1;
+      display: block;
+    }
+    .stat-box .label { font-size: 0.78rem; color: #94a3b8; }
+    /* ── Code blocks ── */
+    pre, code {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+    }
+    pre {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 12px 0 16px;
+      line-height: 1.6;
+      color: #c9d1d9;
+    }
+    code {
+      background: #1e293b;
+      color: #a5b4fc;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12.5px;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: 13px; }
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 12px 0 20px; border-radius: 10px; border: 1px solid #334155; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: #1e293b;
+      color: #a5b4fc;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+    }
+    td {
+      padding: 11px 16px;
+      border-bottom: 1px solid #1e293b;
+      color: #cbd5e1;
+      font-size: 0.88rem;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #0f172a; }
+    tr:last-child td { border-bottom: none; }
+    td code { font-size: 11.5px; }
+    /* ── Pipeline steps ── */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 12px 0 20px;
+    }
+    .pipeline-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 14px 18px;
+    }
+    .step-num {
+      background: #6366f1;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 800;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-body .step-title { font-weight: 700; color: #e2e8f0; margin-bottom: 2px; }
+    .step-body .step-desc { font-size: 0.86rem; color: #94a3b8; }
+    /* ── Alert boxes ── */
+    .alert {
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 12px 0 16px;
+      font-size: 0.88rem;
+    }
+    .alert-cyan {
+      background: #0c2a33;
+      border-left: 4px solid #06b6d4;
+      color: #a5f3fc;
+    }
+    .alert-green {
+      background: #0a2218;
+      border-left: 4px solid #22c55e;
+      color: #86efac;
+    }
+    .alert-yellow {
+      background: #2a1f05;
+      border-left: 4px solid #eab308;
+      color: #fef08a;
+    }
+    .alert-purple {
+      background: #1a1040;
+      border-left: 4px solid #8b5cf6;
+      color: #c4b5fd;
+    }
+    .alert strong { display: block; margin-bottom: 4px; font-size: 0.9rem; }
+    /* ── Tag chips ── */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; }
+    .chip {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #a5b4fc;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    /* ── Endpoint list ── */
+    .endpoint {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.86rem;
+    }
+    .endpoint:last-child { border-bottom: none; }
+    .method {
+      font-weight: 700;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      min-width: 46px;
+      text-align: center;
+    }
+    .get { background: #0a3323; color: #34d399; }
+    .post { background: #1a2e5a; color: #93c5fd; }
+    .delete { background: #3b0d0d; color: #f87171; }
+    .endpoint-path { color: #e2e8f0; font-family: monospace; }
+    .endpoint-desc { color: #94a3b8; margin-left: auto; }
+    /* ── Architecture tier ── */
+    .arch-tier {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .tier-badge {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .tier-1 { background: #1a2e5a; color: #93c5fd; }
+    .tier-2 { background: #1a3a2a; color: #6ee7b7; }
+    .tier-3 { background: #2a1040; color: #c4b5fd; }
+    .tier-info .tier-name { font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+    .tier-info .tier-detail { font-size: 0.85rem; color: #94a3b8; }
+    /* ── Settings section ── */
+    .settings-section {
+      margin-top: 48px;
+      padding-top: 32px;
+      border-top: 2px solid #334155;
+    }
+    .settings-header {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #f1f5f9;
+      margin-bottom: 8px;
+    }
+    .settings-sub {
+      color: #94a3b8;
+      margin-bottom: 28px;
+      font-size: 0.92rem;
+    }
+    .badge-required {
+      display: inline-block;
+      background: #7f1d1d;
+      color: #fca5a5;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 10px;
+      vertical-align: middle;
+    }
+    .badge-optional {
+      display: inline-block;
+      background: #1a3a2a;
+      color: #6ee7b7;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 10px;
+      vertical-align: middle;
+    }
+    .badge-auto {
+      display: inline-block;
+      background: #1a2e5a;
+      color: #93c5fd;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 10px;
+      vertical-align: middle;
+    }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { margin-bottom: 4px; color: #cbd5e1; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<!-- Sticky Language Switcher -->
+<div class="lang-bar">
+  <span class="lang-bar-label">Language</span>
+  <button onclick="switchLang('en')" id="btn-en" class="lang-btn active">&#127482;&#127480; English</button>
+  <button onclick="switchLang('uz')" id="btn-uz" class="lang-btn">&#127482;&#127487; O'zbek</button>
+  <button onclick="switchLang('ko')" id="btn-ko" class="lang-btn">&#127472;&#127479; &#54620;&#44397;&#50612;</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════ ENGLISH ══ -->
+<div id="lang-en" class="lang-content">
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-badge">Project 2 — RAG System</div>
+    <h1><span>DocuMind</span> — Development Process &amp; Architecture</h1>
+    <p>Production-grade Retrieval-Augmented Generation system. Zero external API dependencies. Fully offline capable.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stat-grid">
+    <div class="stat-box"><span class="num">~4,954</span><span class="label">Lines of Code</span></div>
+    <div class="stat-box"><span class="num">52</span><span class="label">Source Files</span></div>
+    <div class="stat-box"><span class="num">3</span><span class="label">Service Tiers</span></div>
+    <div class="stat-box"><span class="num">384</span><span class="label">Embedding Dims</span></div>
+  </div>
+
+  <!-- Problem & Solution -->
+  <h2><span class="icon">&#129300;</span> Problem &amp; Solution</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">&#128683; The Problem</div>
+      <p>Organizations waste <strong>2–4 hours per day</strong> searching through documents. Traditional keyword search misses semantic meaning — searching "vehicle" won't find documents about "car" or "automobile".</p>
+    </div>
+    <div class="card">
+      <div class="card-title">&#10003; The Solution (RAG)</div>
+      <p>Retrieval-Augmented Generation: <strong>Document → Chunk → Embed → Store → Semantic Search → Answer with Citations</strong>. Understands meaning, not just keywords. Works fully offline.</p>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <h2><span class="icon">&#127959;</span> 3-Tier Architecture</h2>
+  <div class="arch-tier">
+    <span class="tier-badge tier-1">Tier 1</span>
+    <div class="tier-info">
+      <div class="tier-name">React 18 Frontend — Port 3001</div>
+      <div class="tier-detail">React 18.3 · TypeScript 5.7 · Vite 6.0 · Tailwind CSS 3.4 · React Router 6.28 · Recharts · Radix UI · Lucide React. Served via nginx in Docker.</div>
+    </div>
+  </div>
+  <div class="arch-tier">
+    <span class="tier-badge tier-2">Tier 2</span>
+    <div class="tier-info">
+      <div class="tier-name">.NET 8 API Gateway — Port 5001</div>
+      <div class="tier-detail">.NET 8 · ASP.NET Core 8 · Entity Framework Core 8.0.11 · SQLite · Swashbuckle 6.9.0. 20 REST endpoints across 4 controllers. Orchestrates upload, chat, knowledge base, and analytics.</div>
+    </div>
+  </div>
+  <div class="arch-tier">
+    <span class="tier-badge tier-3">Tier 3</span>
+    <div class="tier-info">
+      <div class="tier-name">Python FastAPI RAG Engine — Port 8000</div>
+      <div class="tier-detail">Python 3.11 · FastAPI 0.115.6 · Uvicorn · sentence-transformers 3.3.1 · ChromaDB 0.5.23 · PyPDF2 3.0.1 · python-docx 1.1.2 · NumPy · PyTorch 2.5.1 · Pydantic 2.10.4. Core AI/ML pipeline.</div>
+    </div>
+  </div>
+
+  <!-- AI/ML Pipeline -->
+  <h2><span class="icon">&#129302;</span> AI/ML Pipeline — Step by Step</h2>
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">Text Extraction</div>
+        <div class="step-desc">PDF → PyPDF2 · DOCX → python-docx · TXT/MD → built-in with UTF-8 / Latin-1 / CP1252 fallback encoding. Max file size: 50MB. Supported formats: PDF, DOCX, TXT, MD.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">Text Chunking — Recursive Character Splitting</div>
+        <div class="step-desc"><code>chunk_size=512</code>, <code>chunk_overlap=50</code>. 9-level separator hierarchy: paragraph → line → sentence → clause → word → character. Preserves semantic boundaries.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">Embedding — all-MiniLM-L6-v2</div>
+        <div class="step-desc">22.7M parameters · 384 dimensions · ~80MB · runs locally on CPU · no API keys needed. <code>batch_size=64</code> · L2-normalized vectors. Auto-downloaded from HuggingFace on first run.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title">Vector Storage — ChromaDB with HNSW Index</div>
+        <div class="step-desc">Cosine similarity space · persistent storage · batches of 500 · metadata stored alongside each chunk. HNSW (Hierarchical Navigable Small World) index for fast approximate nearest-neighbor search.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <div class="step-title">Retrieval &amp; Reranking</div>
+        <div class="step-desc">Query → embed → HNSW search (over-retrieve <code>top_k×2</code>) → length-penalty reranking → deduplication → score threshold filter → return top_k results.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <div class="step-title">Answer Generation</div>
+        <div class="step-desc">Currently rule-based (no LLM required). Builds context from ranked chunks → formats answer with <code>[Source N]</code> citations. Optional: plug in OpenAI, Anthropic Claude, or Ollama for LLM-powered answers.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance -->
+  <h2><span class="icon">&#9889;</span> Performance Characteristics</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Without LLM (Rule-based)</div>
+      <p>Query latency: <strong>30–100ms</strong><br>Pure vector search + context assembly. Production-ready for most use cases.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">With LLM (Optional)</div>
+      <p>Query latency: <strong>1–5 seconds</strong><br>Adds natural language generation on top of retrieved context. Requires API key or local Ollama.</p>
+    </div>
+  </div>
+
+  <!-- RAG Engine API -->
+  <h2><span class="icon">&#128279;</span> RAG Engine Endpoints — Port 8000</h2>
+  <div class="card">
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/health</span><span class="endpoint-desc">Health check &amp; status</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/process</span><span class="endpoint-desc">Process a file already on disk</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/upload-and-process</span><span class="endpoint-desc">Upload file + process in one call</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/query</span><span class="endpoint-desc">Semantic search query</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/collections</span><span class="endpoint-desc">List all ChromaDB collections</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/chunks/{document_id}</span><span class="endpoint-desc">Get all chunks for a document</span></div>
+    <div class="endpoint"><span class="method delete">DELETE</span><span class="endpoint-path">/chunks/{document_id}</span><span class="endpoint-desc">Delete document chunks from vector store</span></div>
+    <div class="endpoint"><span class="method delete">DELETE</span><span class="endpoint-path">/collection/{name}</span><span class="endpoint-desc">Delete an entire collection</span></div>
+  </div>
+
+  <!-- Backend Endpoints -->
+  <h2><span class="icon">&#128196;</span> Backend API — Port 5001 (20 Endpoints)</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Documents Controller</div>
+      <p>Upload, list, get details, delete documents. Triggers RAG engine processing pipeline.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Chat Controller</div>
+      <p>Create sessions, send messages, retrieve chat history. Routes queries to RAG engine.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">KnowledgeBase Controller</div>
+      <p>Semantic search interface. Browse and filter indexed document chunks.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Analytics Controller</div>
+      <p>Usage stats, query frequency, document popularity, performance metrics.</p>
+    </div>
+  </div>
+
+  <!-- Database Schema -->
+  <h2><span class="icon">&#128190;</span> Database Schema (SQLite)</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Table</th><th>Key Columns</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>Documents</code></td><td>Id, FileName, FilePath, Status, ChunkCount, CreatedAt</td><td>Tracks uploaded files and processing status</td></tr>
+        <tr><td><code>ChatSessions</code></td><td>Id, Title, CreatedAt, LastActivity</td><td>Groups related Q&amp;A conversations</td></tr>
+        <tr><td><code>ChatMessages</code></td><td>Id, SessionId, Role, Content, Timestamp</td><td>Stores individual chat turns (user/assistant)</td></tr>
+        <tr><td><code>SourceCitations</code></td><td>Id, MessageId, DocumentId, ChunkText, Score</td><td>Links answers to source document chunks</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="alert alert-cyan">
+    <strong>Auto-created on first run</strong>
+    SQLite database (<code>documind.db</code>) is created automatically by EF Core migrations on first backend startup. No manual setup required.
+  </div>
+
+  <!-- Docker -->
+  <h2><span class="icon">&#128679;</span> Docker Architecture</h2>
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">frontend</div>
+      <p>React app served by nginx. Maps port 3001. Depends on backend service.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">backend</div>
+      <p>.NET 8 API. Maps port 5001. Connects to RAG engine via internal Docker network.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">rag-engine</div>
+      <p>Python FastAPI. Maps port 8000. Shares <code>uploaded-docs</code> volume with backend.</p>
+    </div>
+  </div>
+  <div class="alert alert-yellow">
+    <strong>Shared Volume</strong>
+    The <code>uploaded-docs</code> Docker volume is mounted into both <code>backend</code> (for file storage) and <code>rag-engine</code> (for file processing). This allows the Python engine to read files uploaded through the .NET API without network transfer.
+  </div>
+
+  <!-- Tech Stack -->
+  <h2><span class="icon">&#128296;</span> Full Technology Stack</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Layer</th><th>Technology</th><th>Version</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td>Frontend</td><td>React + TypeScript</td><td>18.3 / 5.7</td><td>UI framework</td></tr>
+        <tr><td>Frontend</td><td>Vite</td><td>6.0</td><td>Build tool &amp; dev server</td></tr>
+        <tr><td>Frontend</td><td>Tailwind CSS</td><td>3.4</td><td>Utility-first styling</td></tr>
+        <tr><td>Frontend</td><td>Recharts / Radix UI</td><td>—</td><td>Charts &amp; accessible components</td></tr>
+        <tr><td>Backend</td><td>.NET / ASP.NET Core</td><td>8.0</td><td>API Gateway</td></tr>
+        <tr><td>Backend</td><td>EF Core</td><td>8.0.11</td><td>ORM &amp; migrations</td></tr>
+        <tr><td>Backend</td><td>SQLite</td><td>—</td><td>Relational data store</td></tr>
+        <tr><td>Backend</td><td>Swashbuckle</td><td>6.9.0</td><td>Swagger/OpenAPI docs</td></tr>
+        <tr><td>RAG Engine</td><td>Python</td><td>3.11</td><td>Runtime</td></tr>
+        <tr><td>RAG Engine</td><td>FastAPI + Uvicorn</td><td>0.115.6</td><td>HTTP server &amp; async framework</td></tr>
+        <tr><td>RAG Engine</td><td>sentence-transformers</td><td>3.3.1</td><td>Embedding model</td></tr>
+        <tr><td>RAG Engine</td><td>ChromaDB</td><td>0.5.23</td><td>Vector database</td></tr>
+        <tr><td>RAG Engine</td><td>PyTorch</td><td>2.5.1</td><td>ML tensor operations</td></tr>
+        <tr><td>RAG Engine</td><td>PyPDF2 / python-docx</td><td>3.0.1 / 1.1.2</td><td>Document parsing</td></tr>
+        <tr><td>RAG Engine</td><td>Pydantic</td><td>2.10.4</td><td>Data validation</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── REQUIRED SETTINGS ─── -->
+  <div class="settings-section">
+    <div class="settings-header">&#9881;&#65039; Required Settings</div>
+    <div class="settings-sub">All environment variables and configuration needed to run DocuMind in development and production.</div>
+
+    <!-- Dev Mode -->
+    <h2><span class="icon">&#128295;</span> Development Mode Requirements</h2>
+    <div class="alert alert-cyan">
+      <strong>No External API Keys Required for Core Functionality</strong>
+      The embedding model (all-MiniLM-L6-v2) runs locally on CPU. No OpenAI, no Anthropic, no paid services needed. Internet required only once to download the model (~80MB) on first startup.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Setting</th><th>Default / Example</th><th>Where to Set</th><th>How to Get</th><th>Required?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>CHROMA_PERSIST_DIR</code></td>
+            <td><code>./chroma_data</code></td>
+            <td>RAG Engine <code>.env</code> or shell</td>
+            <td>No setup — directory auto-created on first run</td>
+            <td><span class="badge-auto">AUTO</span></td>
+          </tr>
+          <tr>
+            <td><code>UPLOAD_DIR</code></td>
+            <td><code>./uploads</code></td>
+            <td>RAG Engine <code>.env</code> or shell</td>
+            <td>No setup — directory auto-created on first run</td>
+            <td><span class="badge-auto">AUTO</span></td>
+          </tr>
+          <tr>
+            <td><code>EMBEDDING_MODEL</code></td>
+            <td><code>all-MiniLM-L6-v2</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>Auto-downloaded from HuggingFace (~80MB, first run only, needs internet once)</td>
+            <td><span class="badge-auto">AUTO</span></td>
+          </tr>
+          <tr>
+            <td><code>CHUNK_SIZE</code></td>
+            <td><code>512</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>No setup — built-in default</td>
+            <td><span class="badge-optional">OPTIONAL</span></td>
+          </tr>
+          <tr>
+            <td><code>CHUNK_OVERLAP</code></td>
+            <td><code>50</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>No setup — built-in default</td>
+            <td><span class="badge-optional">OPTIONAL</span></td>
+          </tr>
+          <tr>
+            <td><code>TOP_K</code></td>
+            <td><code>5</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>No setup — built-in default. Tunable in /settings UI.</td>
+            <td><span class="badge-optional">OPTIONAL</span></td>
+          </tr>
+          <tr>
+            <td><code>RagEngine__BaseUrl</code></td>
+            <td><code>http://localhost:8000</code></td>
+            <td><code>appsettings.Development.json</code> (.NET backend)</td>
+            <td>No setup — points to local RAG engine</td>
+            <td><span class="badge-required">REQUIRED</span></td>
+          </tr>
+          <tr>
+            <td><code>ConnectionStrings__DefaultConnection</code></td>
+            <td><code>Data Source=documind.db</code></td>
+            <td><code>appsettings.Development.json</code> (.NET backend)</td>
+            <td>SQLite auto-created on first backend startup via EF Core migrations</td>
+            <td><span class="badge-auto">AUTO</span></td>
+          </tr>
+          <tr>
+            <td><code>OPENAI_API_KEY</code></td>
+            <td><code>sk-...</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>Optional: <a href="https://platform.openai.com" style="color:#6366f1">platform.openai.com</a> — free tier available</td>
+            <td><span class="badge-optional">OPTIONAL</span></td>
+          </tr>
+          <tr>
+            <td><code>ANTHROPIC_API_KEY</code></td>
+            <td><code>sk-ant-...</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>Optional: <a href="https://console.anthropic.com" style="color:#6366f1">console.anthropic.com</a> — free tier available</td>
+            <td><span class="badge-optional">OPTIONAL</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Production Mode -->
+    <h2><span class="icon">&#128640;</span> Production Mode Requirements (Free Tier Only)</h2>
+    <div class="alert alert-green">
+      <strong>100% Free Deployment Possible</strong>
+      All three tiers can be deployed for free using the platforms listed below. The RAG engine needs at least 2GB RAM for PyTorch + sentence-transformers — choose platforms accordingly.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Setting</th><th>Value</th><th>Where to Set</th><th>Notes</th><th>Required?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>CHROMA_PERSIST_DIR</code></td>
+            <td><code>/data/chroma</code></td>
+            <td>Docker env / hosting env vars</td>
+            <td>Use a Docker volume or persistent disk for data survival across restarts</td>
+            <td><span class="badge-required">REQUIRED</span></td>
+          </tr>
+          <tr>
+            <td><code>UPLOAD_DIR</code></td>
+            <td><code>/uploads</code></td>
+            <td>Docker env / hosting env vars</td>
+            <td>Mount a persistent volume — files lost without it</td>
+            <td><span class="badge-required">REQUIRED</span></td>
+          </tr>
+          <tr>
+            <td><code>ASPNETCORE_ENVIRONMENT</code></td>
+            <td><code>Production</code></td>
+            <td>Backend hosting env vars</td>
+            <td>Disables developer exception pages, enables production logging</td>
+            <td><span class="badge-required">REQUIRED</span></td>
+          </tr>
+          <tr>
+            <td><code>AllowedOrigins</code></td>
+            <td><code>https://your-frontend.com</code></td>
+            <td><code>appsettings.Production.json</code></td>
+            <td>Restrict CORS to your actual frontend domain</td>
+            <td><span class="badge-required">REQUIRED</span></td>
+          </tr>
+          <tr>
+            <td><code>RagEngine__BaseUrl</code></td>
+            <td><code>https://your-rag.fly.dev</code></td>
+            <td><code>appsettings.Production.json</code></td>
+            <td>Point to deployed RAG engine URL</td>
+            <td><span class="badge-required">REQUIRED</span></td>
+          </tr>
+          <tr>
+            <td><code>ConnectionStrings__DefaultConnection</code></td>
+            <td><code>Data Source=/data/documind.db</code></td>
+            <td>Backend env vars or appsettings</td>
+            <td>Use persistent volume path. Or switch to Supabase PostgreSQL for multi-server.</td>
+            <td><span class="badge-required">REQUIRED</span></td>
+          </tr>
+          <tr>
+            <td><code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code></td>
+            <td><code>sk-...</code></td>
+            <td>RAG Engine hosting env vars</td>
+            <td>Only needed if enabling LLM-powered answers. Groq Cloud also supported (free tier).</td>
+            <td><span class="badge-optional">OPTIONAL</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>&#127760; Free Tier Deployment Recommendations</h3>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">&#128187; Frontend (React)</div>
+        <ul>
+          <li><strong>Vercel</strong> — hobby plan, free, instant deploy from GitHub</li>
+          <li><strong>Netlify</strong> — free tier, 100GB bandwidth/month</li>
+          <li><strong>Cloudflare Pages</strong> — free, unlimited bandwidth</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#128202; Backend (.NET 8)</div>
+        <ul>
+          <li><strong>Railway</strong> — free tier (500MB RAM) — sufficient for .NET API</li>
+          <li><strong>Fly.io</strong> — free tier (256MB RAM, scales up cheaply)</li>
+          <li><strong>Render</strong> — free tier, spins down on inactivity</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#129302; RAG Engine (Python/PyTorch)</div>
+        <ul>
+          <li><strong>Oracle Cloud Always Free</strong> &#9733; — 1 OCPU + 6GB ARM VM — perfectly sufficient for PyTorch</li>
+          <li><strong>Fly.io</strong> — $0.02/GB RAM — cheapest paid option</li>
+          <li><strong>Railway / Render free</strong> — 512MB RAM — INSUFFICIENT for PyTorch</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#128190; Database &amp; Vectors</div>
+        <ul>
+          <li><strong>SQLite</strong> — keep for single-server (just mount a volume)</li>
+          <li><strong>Supabase</strong> — free tier PostgreSQL (500MB) — for multi-server</li>
+          <li><strong>ChromaDB</strong> — keep on same server (just files)</li>
+          <li><strong>Qdrant Cloud</strong> — free tier (1M vectors) — for scale</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>&#128161; Optional LLM Integration (Free Options)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Model</th><th>Cost</th><th>Setup</th></tr></thead>
+        <tbody>
+          <tr><td>Ollama (local)</td><td>llama3.2, mistral</td><td>Free</td><td>Requires machine with 8GB RAM. Set <code>OLLAMA_URL=http://localhost:11434</code></td></tr>
+          <tr><td>OpenAI API</td><td>gpt-4o-mini</td><td>~$0.15/1M input tokens</td><td>Add <code>OPENAI_API_KEY=sk-...</code></td></tr>
+          <tr><td>Anthropic API</td><td>claude-haiku-4-5</td><td>Cheapest Claude model</td><td>Add <code>ANTHROPIC_API_KEY=sk-ant-...</code></td></tr>
+          <tr><td>Groq Cloud</td><td>llama3, mixtral</td><td>Free tier available</td><td>Add <code>GROQ_API_KEY=gsk_...</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+<!-- ═══════════════════════════════════════════════════ UZBEK ══ -->
+<div id="lang-uz" class="lang-content" style="display:none">
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-badge">2-Loyiha — RAG Tizimi</div>
+    <h1><span>DocuMind</span> — Ishlab Chiqish Jarayoni va Arxitektura</h1>
+    <p>Ishlab chiqarishga tayyor Retrieval-Augmented Generation tizimi. Tashqi API kalitlariga bog'liqligi yo'q. To'liq oflayn ishlaydi.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stat-grid">
+    <div class="stat-box"><span class="num">~4,954</span><span class="label">Kod satrlari</span></div>
+    <div class="stat-box"><span class="num">52</span><span class="label">Manba fayllari</span></div>
+    <div class="stat-box"><span class="num">3</span><span class="label">Xizmat qatlamlari</span></div>
+    <div class="stat-box"><span class="num">384</span><span class="label">Vektorlash o'lchamlari</span></div>
+  </div>
+
+  <!-- Problem & Solution -->
+  <h2><span class="icon">&#129300;</span> Muammo va Yechim</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">&#128683; Muammo</div>
+      <p>Tashkilotlar hujjatlarni qidirishga kuniga <strong>2–4 soat</strong> sarflaydi. An'anaviy kalit so'z qidiruvi semantik ma'noni tushunmaydi — "avtomobil" so'zi bilan qidirsangiz, "mashina" haqidagi hujjatlarni topa olmaysiz.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">&#10003; Yechim (RAG)</div>
+      <p>Retrieval-Augmented Generation: <strong>Hujjat → Qism → Vektorlashtirish → Saqlash → Semantik qidiruv → Manbalar bilan javob</strong>. Ma'noni tushunadi, faqat kalit so'zlarga tayanmaydi. To'liq oflayn ishlaydi.</p>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <h2><span class="icon">&#127959;</span> 3 Qatlamli Arxitektura</h2>
+  <div class="arch-tier">
+    <span class="tier-badge tier-1">1-Qatlam</span>
+    <div class="tier-info">
+      <div class="tier-name">React 18 Frontend — 3001-port</div>
+      <div class="tier-detail">React 18.3 · TypeScript 5.7 · Vite 6.0 · Tailwind CSS 3.4 · React Router 6.28 · Recharts · Radix UI · Lucide React. Docker-da nginx orqali xizmat ko'rsatiladi.</div>
+    </div>
+  </div>
+  <div class="arch-tier">
+    <span class="tier-badge tier-2">2-Qatlam</span>
+    <div class="tier-info">
+      <div class="tier-name">.NET 8 API Gateway — 5001-port</div>
+      <div class="tier-detail">.NET 8 · ASP.NET Core 8 · Entity Framework Core 8.0.11 · SQLite · Swashbuckle 6.9.0. 4 ta kontrollerda 20 ta REST endpointi. Yuklash, chat, bilim bazasi va analitikani boshqaradi.</div>
+    </div>
+  </div>
+  <div class="arch-tier">
+    <span class="tier-badge tier-3">3-Qatlam</span>
+    <div class="tier-info">
+      <div class="tier-name">Python FastAPI RAG Engine — 8000-port</div>
+      <div class="tier-detail">Python 3.11 · FastAPI 0.115.6 · Uvicorn · sentence-transformers 3.3.1 · ChromaDB 0.5.23 · PyPDF2 3.0.1 · python-docx 1.1.2 · NumPy · PyTorch 2.5.1 · Pydantic 2.10.4. Asosiy AI/ML quvuri.</div>
+    </div>
+  </div>
+
+  <!-- AI/ML Pipeline -->
+  <h2><span class="icon">&#129302;</span> AI/ML Quvuri — Bosqichma-bosqich</h2>
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">Matn Ajratib Olish</div>
+        <div class="step-desc">PDF → PyPDF2 · DOCX → python-docx · TXT/MD → UTF-8 / Latin-1 / CP1252 zahira kodlash bilan o'rnatilgan. Maksimal fayl hajmi: 50MB. Qo'llab-quvvatlanadigan formatlar: PDF, DOCX, TXT, MD.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">Matn Qismlarga Bo'lish — Rekursiv Belgi Ajratish</div>
+        <div class="step-desc"><code>chunk_size=512</code>, <code>chunk_overlap=50</code>. 9 darajali ajratuvchi ierarxiyasi: paragraf → satr → jumla → band → so'z → belgi. Semantik chegaralarni saqlaydi.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">Vektorlashtirish — all-MiniLM-L6-v2</div>
+        <div class="step-desc">22.7M parametr · 384 o'lcham · ~80MB · CPU-da mahalliy ishlaydi · API kalit kerak emas. <code>batch_size=64</code> · L2-normallashtirish. Birinchi ishga tushirishda HuggingFace-dan avtomatik yuklanadi.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title">Vektor Saqlash — HNSW Indeksi bilan ChromaDB</div>
+        <div class="step-desc">Kosinus o'xshashligi maydoni · doimiy saqlash · 500 ta partiyalar · har bir qism bilan birga metadata saqlanadi. HNSW (Hierarchical Navigable Small World) indeksi tez taxminiy qo'shni qidiruv uchun.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <div class="step-title">Qidirish va Qayta Tartiblash</div>
+        <div class="step-desc">So'rov → vektorlashtirish → HNSW qidiruv (ko'proq olish <code>top_k×2</code>) → uzunlik penalti bilan qayta tartiblash → dublikatlarni olib tashlash → ball filtri → top_k natijalarni qaytarish.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <div class="step-title">Javob Yaratish</div>
+        <div class="step-desc">Hozirda qoidaga asoslangan (LLM talab qilinmaydi). Tartiblangan qismlardan kontekst quriladi → <code>[Manba N]</code> iqtiboslari bilan javob formatlashadi. Ixtiyoriy: OpenAI, Anthropic Claude yoki Ollama ulash mumkin.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance -->
+  <h2><span class="icon">&#9889;</span> Ishlash Ko'rsatkichlari</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">LLMsiz (Qoidaga asoslangan)</div>
+      <p>So'rov kechikishi: <strong>30–100ms</strong><br>Sof vektor qidiruvi + kontekst yig'ish. Ko'pgina foydalanish holatlari uchun ishlab chiqarishga tayyor.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">LLM bilan (Ixtiyoriy)</div>
+      <p>So'rov kechikishi: <strong>1–5 soniya</strong><br>Olingan kontekst ustiga tabiiy til generatsiyasini qo'shadi. API kaliti yoki mahalliy Ollama talab qilinadi.</p>
+    </div>
+  </div>
+
+  <!-- RAG Engine Endpoints -->
+  <h2><span class="icon">&#128279;</span> RAG Engine Endpointlari — 8000-port</h2>
+  <div class="card">
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/health</span><span class="endpoint-desc">Holat tekshiruvi</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/process</span><span class="endpoint-desc">Diskdagi faylni qayta ishlash</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/upload-and-process</span><span class="endpoint-desc">Fayl yuklash + qayta ishlash bir vaqtda</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/query</span><span class="endpoint-desc">Semantik qidiruv so'rovi</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/collections</span><span class="endpoint-desc">Barcha ChromaDB kolleksiyalarini ko'rish</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/chunks/{document_id}</span><span class="endpoint-desc">Hujjat qismlarini olish</span></div>
+    <div class="endpoint"><span class="method delete">DELETE</span><span class="endpoint-path">/chunks/{document_id}</span><span class="endpoint-desc">Vektor do'konidan hujjat qismlarini o'chirish</span></div>
+    <div class="endpoint"><span class="method delete">DELETE</span><span class="endpoint-path">/collection/{name}</span><span class="endpoint-desc">Butun kolleksiyani o'chirish</span></div>
+  </div>
+
+  <!-- Backend Endpoints -->
+  <h2><span class="icon">&#128196;</span> Backend API — 5001-port (20 Endpoint)</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Hujjatlar Kontrolleri</div>
+      <p>Hujjatlarni yuklash, ro'yxatga olish, tafsilotlarni ko'rish, o'chirish. RAG engine qayta ishlash quvurini ishga tushiradi.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Chat Kontrolleri</div>
+      <p>Sessiyalarni yaratish, xabarlar yuborish, chat tarixini olish. So'rovlarni RAG engine-ga yo'naltiradi.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Bilim Bazasi Kontrolleri</div>
+      <p>Semantik qidiruv interfeysi. Indekslangan hujjat qismlarini ko'rish va filtrlash.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Analitika Kontrolleri</div>
+      <p>Foydalanish statistikasi, so'rov chastotasi, hujjat mashhurligi, ishlash ko'rsatkichlari.</p>
+    </div>
+  </div>
+
+  <!-- Database Schema -->
+  <h2><span class="icon">&#128190;</span> Ma'lumotlar Bazasi Sxemasi (SQLite)</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Jadval</th><th>Asosiy ustunlar</th><th>Maqsad</th></tr></thead>
+      <tbody>
+        <tr><td><code>Documents</code></td><td>Id, FileName, FilePath, Status, ChunkCount, CreatedAt</td><td>Yuklangan fayllar va qayta ishlash holatini kuzatish</td></tr>
+        <tr><td><code>ChatSessions</code></td><td>Id, Title, CreatedAt, LastActivity</td><td>Bog'liq savol-javob suhbatlarini guruhlash</td></tr>
+        <tr><td><code>ChatMessages</code></td><td>Id, SessionId, Role, Content, Timestamp</td><td>Individual chat navbatlarini saqlash (foydalanuvchi/yordamchi)</td></tr>
+        <tr><td><code>SourceCitations</code></td><td>Id, MessageId, DocumentId, ChunkText, Score</td><td>Javoblarni manba hujjat qismlariga bog'lash</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="alert alert-cyan">
+    <strong>Birinchi ishga tushirishda avtomatik yaratiladi</strong>
+    SQLite ma'lumotlar bazasi (<code>documind.db</code>) birinchi backend ishga tushirishda EF Core migratsiyalari tomonidan avtomatik yaratiladi. Qo'lda sozlash talab qilinmaydi.
+  </div>
+
+  <!-- Docker -->
+  <h2><span class="icon">&#128679;</span> Docker Arxitekturasi</h2>
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">frontend</div>
+      <p>nginx tomonidan xizmat ko'rsatiladigan React ilovasi. 3001-portni ko'rsatadi. Backend xizmatiga bog'liq.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">backend</div>
+      <p>.NET 8 API. 5001-portni ko'rsatadi. Ichki Docker tarmog'i orqali RAG engine-ga ulanadi.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">rag-engine</div>
+      <p>Python FastAPI. 8000-portni ko'rsatadi. Backend bilan <code>uploaded-docs</code> hajmini ulashadi.</p>
+    </div>
+  </div>
+
+  <!-- Tech Stack -->
+  <h2><span class="icon">&#128296;</span> To'liq Texnologik Stek</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Qatlam</th><th>Texnologiya</th><th>Versiya</th><th>Vazifasi</th></tr></thead>
+      <tbody>
+        <tr><td>Frontend</td><td>React + TypeScript</td><td>18.3 / 5.7</td><td>UI freymvork</td></tr>
+        <tr><td>Frontend</td><td>Vite</td><td>6.0</td><td>Qurish vositasi va dev server</td></tr>
+        <tr><td>Frontend</td><td>Tailwind CSS</td><td>3.4</td><td>Utility-first uslublash</td></tr>
+        <tr><td>Backend</td><td>.NET / ASP.NET Core</td><td>8.0</td><td>API Gateway</td></tr>
+        <tr><td>Backend</td><td>EF Core</td><td>8.0.11</td><td>ORM va migratsiyalar</td></tr>
+        <tr><td>Backend</td><td>SQLite</td><td>—</td><td>Relyatsion ma'lumotlar do'koni</td></tr>
+        <tr><td>RAG Engine</td><td>Python</td><td>3.11</td><td>Ish muhiti</td></tr>
+        <tr><td>RAG Engine</td><td>FastAPI + Uvicorn</td><td>0.115.6</td><td>HTTP server va asinxron freymvork</td></tr>
+        <tr><td>RAG Engine</td><td>sentence-transformers</td><td>3.3.1</td><td>Vektorlashtirish modeli</td></tr>
+        <tr><td>RAG Engine</td><td>ChromaDB</td><td>0.5.23</td><td>Vektor ma'lumotlar bazasi</td></tr>
+        <tr><td>RAG Engine</td><td>PyTorch</td><td>2.5.1</td><td>ML tensor operatsiyalari</td></tr>
+        <tr><td>RAG Engine</td><td>PyPDF2 / python-docx</td><td>3.0.1 / 1.1.2</td><td>Hujjat tahlili</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── TALAB QILINADIGAN SOZLAMALAR ─── -->
+  <div class="settings-section">
+    <div class="settings-header">&#9881;&#65039; Talab Qilinadigan Sozlamalar</div>
+    <div class="settings-sub">DocuMind-ni ishlab chiqish va ishlab chiqarish muhitida ishlatish uchun zarur bo'lgan barcha muhit o'zgaruvchilari va konfiguratsiyalar.</div>
+
+    <!-- Dev Mode -->
+    <h2><span class="icon">&#128295;</span> Ishlab Chiqish Muhiti Talablari</h2>
+    <div class="alert alert-cyan">
+      <strong>Asosiy Funksionallik uchun Tashqi API Kalitlari Talab Qilinmaydi</strong>
+      Vektorlashtirish modeli (all-MiniLM-L6-v2) mahalliy CPU-da ishlaydi. OpenAI, Anthropic yoki pullik xizmatlar kerak emas. Internet faqat birinchi ishga tushirishda model yuklanishi uchun (~80MB) bir marta talab qilinadi.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sozlama</th><th>Standart / Misol</th><th>Qayerda o'rnatish</th><th>Qanday olish</th><th>Talab qilinadimi?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>CHROMA_PERSIST_DIR</code></td>
+            <td><code>./chroma_data</code></td>
+            <td>RAG Engine <code>.env</code> yoki shell</td>
+            <td>Sozlash shart emas — birinchi ishga tushirishda avtomatik yaratiladi</td>
+            <td><span class="badge-auto">AVTO</span></td>
+          </tr>
+          <tr>
+            <td><code>UPLOAD_DIR</code></td>
+            <td><code>./uploads</code></td>
+            <td>RAG Engine <code>.env</code> yoki shell</td>
+            <td>Sozlash shart emas — birinchi ishga tushirishda avtomatik yaratiladi</td>
+            <td><span class="badge-auto">AVTO</span></td>
+          </tr>
+          <tr>
+            <td><code>EMBEDDING_MODEL</code></td>
+            <td><code>all-MiniLM-L6-v2</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>HuggingFace-dan avtomatik yuklanadi (~80MB, faqat birinchi marta, bir marta internet kerak)</td>
+            <td><span class="badge-auto">AVTO</span></td>
+          </tr>
+          <tr>
+            <td><code>CHUNK_SIZE</code></td>
+            <td><code>512</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>Sozlash shart emas — o'rnatilgan standart qiymat</td>
+            <td><span class="badge-optional">IXTIYORIY</span></td>
+          </tr>
+          <tr>
+            <td><code>CHUNK_OVERLAP</code></td>
+            <td><code>50</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>Sozlash shart emas — o'rnatilgan standart qiymat</td>
+            <td><span class="badge-optional">IXTIYORIY</span></td>
+          </tr>
+          <tr>
+            <td><code>TOP_K</code></td>
+            <td><code>5</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>Sozlash shart emas — /settings UI-da sozlanishi mumkin</td>
+            <td><span class="badge-optional">IXTIYORIY</span></td>
+          </tr>
+          <tr>
+            <td><code>RagEngine__BaseUrl</code></td>
+            <td><code>http://localhost:8000</code></td>
+            <td><code>appsettings.Development.json</code> (.NET backend)</td>
+            <td>Sozlash shart emas — mahalliy RAG engine-ga ishora qiladi</td>
+            <td><span class="badge-required">TALAB QILINADI</span></td>
+          </tr>
+          <tr>
+            <td><code>ConnectionStrings__DefaultConnection</code></td>
+            <td><code>Data Source=documind.db</code></td>
+            <td><code>appsettings.Development.json</code> (.NET backend)</td>
+            <td>EF Core migratsiyalari orqali birinchi backend ishga tushirishda avtomatik yaratiladi</td>
+            <td><span class="badge-auto">AVTO</span></td>
+          </tr>
+          <tr>
+            <td><code>OPENAI_API_KEY</code></td>
+            <td><code>sk-...</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>Ixtiyoriy: <a href="https://platform.openai.com" style="color:#6366f1">platform.openai.com</a> — bepul daraja mavjud</td>
+            <td><span class="badge-optional">IXTIYORIY</span></td>
+          </tr>
+          <tr>
+            <td><code>ANTHROPIC_API_KEY</code></td>
+            <td><code>sk-ant-...</code></td>
+            <td>RAG Engine <code>.env</code></td>
+            <td>Ixtiyoriy: <a href="https://console.anthropic.com" style="color:#6366f1">console.anthropic.com</a> — bepul daraja mavjud</td>
+            <td><span class="badge-optional">IXTIYORIY</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Production Mode -->
+    <h2><span class="icon">&#128640;</span> Ishlab Chiqarish Muhiti Talablari (Faqat Bepul Daraja)</h2>
+    <div class="alert alert-green">
+      <strong>100% Bepul Joylashtirish Mumkin</strong>
+      Barcha uch qatlam quyida ko'rsatilgan platformalar yordamida bepul joylashtirilishi mumkin. RAG engine PyTorch + sentence-transformers uchun kamida 2GB RAM talab qiladi — platformalarni shunga ko'ra tanlang.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sozlama</th><th>Qiymat</th><th>Qayerda o'rnatish</th><th>Izohlar</th><th>Talab qilinadimi?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>CHROMA_PERSIST_DIR</code></td>
+            <td><code>/data/chroma</code></td>
+            <td>Docker env / hosting muhit o'zgaruvchilari</td>
+            <td>Qayta ishga tushirishda ma'lumotlarni saqlash uchun Docker hajmi yoki doimiy diskdan foydalaning</td>
+            <td><span class="badge-required">TALAB QILINADI</span></td>
+          </tr>
+          <tr>
+            <td><code>UPLOAD_DIR</code></td>
+            <td><code>/uploads</code></td>
+            <td>Docker env / hosting muhit o'zgaruvchilari</td>
+            <td>Doimiy hajm o'rnatish — u bo'lmasdan fayllar yo'qoladi</td>
+            <td><span class="badge-required">TALAB QILINADI</span></td>
+          </tr>
+          <tr>
+            <td><code>ASPNETCORE_ENVIRONMENT</code></td>
+            <td><code>Production</code></td>
+            <td>Backend hosting muhit o'zgaruvchilari</td>
+            <td>Dasturchi istisno sahifalarini o'chiradi, ishlab chiqarish jurnalini yoqadi</td>
+            <td><span class="badge-required">TALAB QILINADI</span></td>
+          </tr>
+          <tr>
+            <td><code>AllowedOrigins</code></td>
+            <td><code>https://your-frontend.com</code></td>
+            <td><code>appsettings.Production.json</code></td>
+            <td>CORS-ni haqiqiy frontend domeningizga cheklang</td>
+            <td><span class="badge-required">TALAB QILINADI</span></td>
+          </tr>
+          <tr>
+            <td><code>RagEngine__BaseUrl</code></td>
+            <td><code>https://your-rag.fly.dev</code></td>
+            <td><code>appsettings.Production.json</code></td>
+            <td>Joylashtirilgan RAG engine URL-ga ishora qiling</td>
+            <td><span class="badge-required">TALAB QILINADI</span></td>
+          </tr>
+          <tr>
+            <td><code>ConnectionStrings__DefaultConnection</code></td>
+            <td><code>Data Source=/data/documind.db</code></td>
+            <td>Backend muhit o'zgaruvchilari yoki appsettings</td>
+            <td>Doimiy hajm yo'lidan foydalaning. Ko'p serverli holat uchun Supabase PostgreSQL-ga o'ting.</td>
+            <td><span class="badge-required">TALAB QILINADI</span></td>
+          </tr>
+          <tr>
+            <td><code>OPENAI_API_KEY</code> yoki <code>ANTHROPIC_API_KEY</code></td>
+            <td><code>sk-...</code></td>
+            <td>RAG Engine hosting muhit o'zgaruvchilari</td>
+            <td>Faqat LLM-asosli javoblarni yoqishda kerak. Groq Cloud ham qo'llab-quvvatlanadi (bepul daraja).</td>
+            <td><span class="badge-optional">IXTIYORIY</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>&#127760; Bepul Daraja Joylashtirish Tavsiyalari</h3>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">&#128187; Frontend (React)</div>
+        <ul>
+          <li><strong>Vercel</strong> — hobby rejasi, bepul, GitHub-dan tezkor joylashtirish</li>
+          <li><strong>Netlify</strong> — bepul daraja, oyiga 100GB tarmoq kengligi</li>
+          <li><strong>Cloudflare Pages</strong> — bepul, cheksiz tarmoq kengligi</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#128202; Backend (.NET 8)</div>
+        <ul>
+          <li><strong>Railway</strong> — bepul daraja (500MB RAM) — .NET API uchun yetarli</li>
+          <li><strong>Fly.io</strong> — bepul daraja (256MB RAM, arzon kengayadi)</li>
+          <li><strong>Render</strong> — bepul daraja, faoliyatsizlikda o'chadi</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#129302; RAG Engine (Python/PyTorch)</div>
+        <ul>
+          <li><strong>Oracle Cloud Always Free</strong> &#9733; — 1 OCPU + 6GB ARM VM — PyTorch uchun mukammal</li>
+          <li><strong>Fly.io</strong> — $0.02/GB RAM — eng arzon pullik variant</li>
+          <li><strong>Railway / Render bepul</strong> — 512MB RAM — PyTorch uchun YETARLI EMAS</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#128190; Ma'lumotlar Bazasi va Vektorlar</div>
+        <ul>
+          <li><strong>SQLite</strong> — yagona server uchun saqlang (shunchaki hajm o'rnating)</li>
+          <li><strong>Supabase</strong> — bepul daraja PostgreSQL (500MB) — ko'p serverli holat uchun</li>
+          <li><strong>ChromaDB</strong> — bir serverda saqlang (shunchaki fayllar)</li>
+          <li><strong>Qdrant Cloud</strong> — bepul daraja (1M vektor) — kengayish uchun</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>&#128161; Ixtiyoriy LLM Integratsiyasi (Bepul Variantlar)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Variant</th><th>Model</th><th>Narx</th><th>Sozlash</th></tr></thead>
+        <tbody>
+          <tr><td>Ollama (mahalliy)</td><td>llama3.2, mistral</td><td>Bepul</td><td>8GB RAM kerak. <code>OLLAMA_URL=http://localhost:11434</code> o'rnating</td></tr>
+          <tr><td>OpenAI API</td><td>gpt-4o-mini</td><td>~$0.15/1M kirish tokeni</td><td><code>OPENAI_API_KEY=sk-...</code> qo'shing</td></tr>
+          <tr><td>Anthropic API</td><td>claude-haiku-4-5</td><td>Eng arzon Claude modeli</td><td><code>ANTHROPIC_API_KEY=sk-ant-...</code> qo'shing</td></tr>
+          <tr><td>Groq Cloud</td><td>llama3, mixtral</td><td>Bepul daraja mavjud</td><td><code>GROQ_API_KEY=gsk_...</code> qo'shing</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+<!-- ═══════════════════════════════════════════════════ KOREAN ══ -->
+<div id="lang-ko" class="lang-content" style="display:none">
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-badge">프로젝트 2 — RAG 시스템</div>
+    <h1><span>DocuMind</span> — 개발 프로세스 및 아키텍처</h1>
+    <p>프로덕션 수준의 Retrieval-Augmented Generation 시스템. 외부 API 의존성 없음. 완전한 오프라인 동작 지원.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stat-grid">
+    <div class="stat-box"><span class="num">~4,954</span><span class="label">코드 라인 수</span></div>
+    <div class="stat-box"><span class="num">52</span><span class="label">소스 파일 수</span></div>
+    <div class="stat-box"><span class="num">3</span><span class="label">서비스 계층</span></div>
+    <div class="stat-box"><span class="num">384</span><span class="label">임베딩 차원</span></div>
+  </div>
+
+  <!-- Problem & Solution -->
+  <h2><span class="icon">&#129300;</span> 문제 및 해결책</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">&#128683; 문제점</div>
+      <p>조직들은 문서 검색에 하루 <strong>2~4시간</strong>을 낭비합니다. 기존 키워드 검색은 의미를 이해하지 못합니다 — "자동차"로 검색하면 "차량"이나 "승용차"에 관한 문서를 찾지 못합니다.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">&#10003; 해결책 (RAG)</div>
+      <p>Retrieval-Augmented Generation: <strong>문서 → 청크 → 임베딩 → 저장 → 의미 검색 → 출처 포함 답변</strong>. 단순 키워드가 아닌 의미를 이해합니다. 완전 오프라인 동작.</p>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <h2><span class="icon">&#127959;</span> 3계층 아키텍처</h2>
+  <div class="arch-tier">
+    <span class="tier-badge tier-1">1계층</span>
+    <div class="tier-info">
+      <div class="tier-name">React 18 프론트엔드 — 3001번 포트</div>
+      <div class="tier-detail">React 18.3 · TypeScript 5.7 · Vite 6.0 · Tailwind CSS 3.4 · React Router 6.28 · Recharts · Radix UI · Lucide React. Docker에서 nginx를 통해 서비스됩니다.</div>
+    </div>
+  </div>
+  <div class="arch-tier">
+    <span class="tier-badge tier-2">2계층</span>
+    <div class="tier-info">
+      <div class="tier-name">.NET 8 API Gateway — 5001번 포트</div>
+      <div class="tier-detail">.NET 8 · ASP.NET Core 8 · Entity Framework Core 8.0.11 · SQLite · Swashbuckle 6.9.0. 4개 컨트롤러에 걸쳐 20개 REST 엔드포인트. 업로드, 채팅, 지식 베이스, 분석을 총괄합니다.</div>
+    </div>
+  </div>
+  <div class="arch-tier">
+    <span class="tier-badge tier-3">3계층</span>
+    <div class="tier-info">
+      <div class="tier-name">Python FastAPI RAG 엔진 — 8000번 포트</div>
+      <div class="tier-detail">Python 3.11 · FastAPI 0.115.6 · Uvicorn · sentence-transformers 3.3.1 · ChromaDB 0.5.23 · PyPDF2 3.0.1 · python-docx 1.1.2 · NumPy · PyTorch 2.5.1 · Pydantic 2.10.4. 핵심 AI/ML 파이프라인.</div>
+    </div>
+  </div>
+
+  <!-- AI/ML Pipeline -->
+  <h2><span class="icon">&#129302;</span> AI/ML 파이프라인 — 단계별 설명</h2>
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">텍스트 추출</div>
+        <div class="step-desc">PDF → PyPDF2 · DOCX → python-docx · TXT/MD → UTF-8 / Latin-1 / CP1252 폴백 인코딩으로 내장 처리. 최대 파일 크기: 50MB. 지원 형식: PDF, DOCX, TXT, MD.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">텍스트 청킹 — 재귀적 문자 분할</div>
+        <div class="step-desc"><code>chunk_size=512</code>, <code>chunk_overlap=50</code>. 9단계 구분자 계층: 단락 → 줄 → 문장 → 절 → 단어 → 문자. 의미적 경계를 유지합니다.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">임베딩 — all-MiniLM-L6-v2</div>
+        <div class="step-desc">2,270만 매개변수 · 384차원 · ~80MB · CPU에서 로컬 실행 · API 키 불필요. <code>batch_size=64</code> · L2 정규화 벡터. 최초 실행 시 HuggingFace에서 자동 다운로드.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title">벡터 저장 — HNSW 인덱스를 사용한 ChromaDB</div>
+        <div class="step-desc">코사인 유사도 공간 · 영구 저장 · 500개 배치 · 각 청크와 함께 메타데이터 저장. HNSW(계층적 탐색 가능 소세계) 인덱스로 빠른 근사 최근접 이웃 검색.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <div class="step-title">검색 및 재순위화</div>
+        <div class="step-desc">쿼리 → 임베딩 → HNSW 검색 (초과 검색 <code>top_k×2</code>) → 길이 패널티 재순위화 → 중복 제거 → 점수 임계값 필터 → top_k 결과 반환.</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <div class="step-title">답변 생성</div>
+        <div class="step-desc">현재 규칙 기반 (LLM 불필요). 순위화된 청크에서 컨텍스트를 구성 → <code>[출처 N]</code> 인용과 함께 답변을 형식화합니다. 선택적: OpenAI, Anthropic Claude 또는 Ollama 연결 가능.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance -->
+  <h2><span class="icon">&#9889;</span> 성능 특성</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">LLM 없이 (규칙 기반)</div>
+      <p>쿼리 지연: <strong>30~100ms</strong><br>순수 벡터 검색 + 컨텍스트 조합. 대부분의 사용 사례에 프로덕션 준비 완료.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">LLM 포함 (선택적)</div>
+      <p>쿼리 지연: <strong>1~5초</strong><br>검색된 컨텍스트 위에 자연어 생성을 추가합니다. API 키 또는 로컬 Ollama가 필요합니다.</p>
+    </div>
+  </div>
+
+  <!-- RAG Engine Endpoints -->
+  <h2><span class="icon">&#128279;</span> RAG 엔진 엔드포인트 — 8000번 포트</h2>
+  <div class="card">
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/health</span><span class="endpoint-desc">상태 확인</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/process</span><span class="endpoint-desc">디스크에 있는 파일 처리</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/upload-and-process</span><span class="endpoint-desc">파일 업로드 + 처리 한 번에</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="endpoint-path">/query</span><span class="endpoint-desc">의미 검색 쿼리</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/collections</span><span class="endpoint-desc">모든 ChromaDB 컬렉션 조회</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="endpoint-path">/chunks/{document_id}</span><span class="endpoint-desc">문서의 모든 청크 조회</span></div>
+    <div class="endpoint"><span class="method delete">DELETE</span><span class="endpoint-path">/chunks/{document_id}</span><span class="endpoint-desc">벡터 저장소에서 문서 청크 삭제</span></div>
+    <div class="endpoint"><span class="method delete">DELETE</span><span class="endpoint-path">/collection/{name}</span><span class="endpoint-desc">전체 컬렉션 삭제</span></div>
+  </div>
+
+  <!-- Backend Endpoints -->
+  <h2><span class="icon">&#128196;</span> 백엔드 API — 5001번 포트 (20개 엔드포인트)</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">문서 컨트롤러</div>
+      <p>문서 업로드, 목록 조회, 세부 정보 조회, 삭제. RAG 엔진 처리 파이프라인을 트리거합니다.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">채팅 컨트롤러</div>
+      <p>세션 생성, 메시지 전송, 채팅 기록 조회. 쿼리를 RAG 엔진으로 라우팅합니다.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">지식 베이스 컨트롤러</div>
+      <p>의미 검색 인터페이스. 인덱싱된 문서 청크를 검색하고 필터링합니다.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">분석 컨트롤러</div>
+      <p>사용 통계, 쿼리 빈도, 문서 인기도, 성능 지표.</p>
+    </div>
+  </div>
+
+  <!-- Database Schema -->
+  <h2><span class="icon">&#128190;</span> 데이터베이스 스키마 (SQLite)</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>테이블</th><th>주요 컬럼</th><th>목적</th></tr></thead>
+      <tbody>
+        <tr><td><code>Documents</code></td><td>Id, FileName, FilePath, Status, ChunkCount, CreatedAt</td><td>업로드된 파일 및 처리 상태 추적</td></tr>
+        <tr><td><code>ChatSessions</code></td><td>Id, Title, CreatedAt, LastActivity</td><td>관련 Q&amp;A 대화를 그룹화</td></tr>
+        <tr><td><code>ChatMessages</code></td><td>Id, SessionId, Role, Content, Timestamp</td><td>개별 채팅 턴 저장 (사용자/어시스턴트)</td></tr>
+        <tr><td><code>SourceCitations</code></td><td>Id, MessageId, DocumentId, ChunkText, Score</td><td>답변을 원본 문서 청크에 연결</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="alert alert-cyan">
+    <strong>최초 실행 시 자동 생성됩니다</strong>
+    SQLite 데이터베이스 (<code>documind.db</code>)는 최초 백엔드 시작 시 EF Core 마이그레이션에 의해 자동으로 생성됩니다. 수동 설정이 필요하지 않습니다.
+  </div>
+
+  <!-- Docker -->
+  <h2><span class="icon">&#128679;</span> Docker 아키텍처</h2>
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">frontend</div>
+      <p>nginx로 서비스되는 React 앱. 3001번 포트 매핑. 백엔드 서비스에 의존합니다.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">backend</div>
+      <p>.NET 8 API. 5001번 포트 매핑. 내부 Docker 네트워크를 통해 RAG 엔진에 연결.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">rag-engine</div>
+      <p>Python FastAPI. 8000번 포트 매핑. 백엔드와 <code>uploaded-docs</code> 볼륨을 공유합니다.</p>
+    </div>
+  </div>
+
+  <!-- Tech Stack -->
+  <h2><span class="icon">&#128296;</span> 전체 기술 스택</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>계층</th><th>기술</th><th>버전</th><th>역할</th></tr></thead>
+      <tbody>
+        <tr><td>프론트엔드</td><td>React + TypeScript</td><td>18.3 / 5.7</td><td>UI 프레임워크</td></tr>
+        <tr><td>프론트엔드</td><td>Vite</td><td>6.0</td><td>빌드 도구 및 개발 서버</td></tr>
+        <tr><td>프론트엔드</td><td>Tailwind CSS</td><td>3.4</td><td>유틸리티 우선 스타일링</td></tr>
+        <tr><td>백엔드</td><td>.NET / ASP.NET Core</td><td>8.0</td><td>API Gateway</td></tr>
+        <tr><td>백엔드</td><td>EF Core</td><td>8.0.11</td><td>ORM 및 마이그레이션</td></tr>
+        <tr><td>백엔드</td><td>SQLite</td><td>—</td><td>관계형 데이터 저장소</td></tr>
+        <tr><td>RAG 엔진</td><td>Python</td><td>3.11</td><td>런타임</td></tr>
+        <tr><td>RAG 엔진</td><td>FastAPI + Uvicorn</td><td>0.115.6</td><td>HTTP 서버 및 비동기 프레임워크</td></tr>
+        <tr><td>RAG 엔진</td><td>sentence-transformers</td><td>3.3.1</td><td>임베딩 모델</td></tr>
+        <tr><td>RAG 엔진</td><td>ChromaDB</td><td>0.5.23</td><td>벡터 데이터베이스</td></tr>
+        <tr><td>RAG 엔진</td><td>PyTorch</td><td>2.5.1</td><td>ML 텐서 연산</td></tr>
+        <tr><td>RAG 엔진</td><td>PyPDF2 / python-docx</td><td>3.0.1 / 1.1.2</td><td>문서 파싱</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── 필수 설정 ─── -->
+  <div class="settings-section">
+    <div class="settings-header">&#9881;&#65039; 필수 설정</div>
+    <div class="settings-sub">개발 및 프로덕션 환경에서 DocuMind를 실행하는 데 필요한 모든 환경 변수 및 구성입니다.</div>
+
+    <!-- Dev Mode -->
+    <h2><span class="icon">&#128295;</span> 개발 환경 요구 사항</h2>
+    <div class="alert alert-cyan">
+      <strong>핵심 기능에 외부 API 키가 필요하지 않습니다</strong>
+      임베딩 모델(all-MiniLM-L6-v2)은 로컬 CPU에서 실행됩니다. OpenAI, Anthropic 또는 유료 서비스가 필요하지 않습니다. 인터넷은 최초 실행 시 모델 다운로드(~80MB)에만 한 번 필요합니다.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>설정</th><th>기본값 / 예시</th><th>설정 위치</th><th>획득 방법</th><th>필수 여부</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>CHROMA_PERSIST_DIR</code></td>
+            <td><code>./chroma_data</code></td>
+            <td>RAG 엔진 <code>.env</code> 또는 셸</td>
+            <td>설정 불필요 — 최초 실행 시 자동 생성</td>
+            <td><span class="badge-auto">자동</span></td>
+          </tr>
+          <tr>
+            <td><code>UPLOAD_DIR</code></td>
+            <td><code>./uploads</code></td>
+            <td>RAG 엔진 <code>.env</code> 또는 셸</td>
+            <td>설정 불필요 — 최초 실행 시 자동 생성</td>
+            <td><span class="badge-auto">자동</span></td>
+          </tr>
+          <tr>
+            <td><code>EMBEDDING_MODEL</code></td>
+            <td><code>all-MiniLM-L6-v2</code></td>
+            <td>RAG 엔진 <code>.env</code></td>
+            <td>HuggingFace에서 자동 다운로드 (~80MB, 최초 1회, 인터넷 1회 필요)</td>
+            <td><span class="badge-auto">자동</span></td>
+          </tr>
+          <tr>
+            <td><code>CHUNK_SIZE</code></td>
+            <td><code>512</code></td>
+            <td>RAG 엔진 <code>.env</code></td>
+            <td>설정 불필요 — 내장 기본값</td>
+            <td><span class="badge-optional">선택</span></td>
+          </tr>
+          <tr>
+            <td><code>CHUNK_OVERLAP</code></td>
+            <td><code>50</code></td>
+            <td>RAG 엔진 <code>.env</code></td>
+            <td>설정 불필요 — 내장 기본값</td>
+            <td><span class="badge-optional">선택</span></td>
+          </tr>
+          <tr>
+            <td><code>TOP_K</code></td>
+            <td><code>5</code></td>
+            <td>RAG 엔진 <code>.env</code></td>
+            <td>설정 불필요 — /settings UI에서 조정 가능</td>
+            <td><span class="badge-optional">선택</span></td>
+          </tr>
+          <tr>
+            <td><code>RagEngine__BaseUrl</code></td>
+            <td><code>http://localhost:8000</code></td>
+            <td><code>appsettings.Development.json</code> (.NET 백엔드)</td>
+            <td>설정 불필요 — 로컬 RAG 엔진을 가리킵니다</td>
+            <td><span class="badge-required">필수</span></td>
+          </tr>
+          <tr>
+            <td><code>ConnectionStrings__DefaultConnection</code></td>
+            <td><code>Data Source=documind.db</code></td>
+            <td><code>appsettings.Development.json</code> (.NET 백엔드)</td>
+            <td>EF Core 마이그레이션으로 최초 백엔드 시작 시 자동 생성</td>
+            <td><span class="badge-auto">자동</span></td>
+          </tr>
+          <tr>
+            <td><code>OPENAI_API_KEY</code></td>
+            <td><code>sk-...</code></td>
+            <td>RAG 엔진 <code>.env</code></td>
+            <td>선택: <a href="https://platform.openai.com" style="color:#6366f1">platform.openai.com</a> — 무료 티어 이용 가능</td>
+            <td><span class="badge-optional">선택</span></td>
+          </tr>
+          <tr>
+            <td><code>ANTHROPIC_API_KEY</code></td>
+            <td><code>sk-ant-...</code></td>
+            <td>RAG 엔진 <code>.env</code></td>
+            <td>선택: <a href="https://console.anthropic.com" style="color:#6366f1">console.anthropic.com</a> — 무료 티어 이용 가능</td>
+            <td><span class="badge-optional">선택</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Production Mode -->
+    <h2><span class="icon">&#128640;</span> 프로덕션 요구 사항 (무료 티어 전용)</h2>
+    <div class="alert alert-green">
+      <strong>100% 무료 배포 가능</strong>
+      아래 나열된 플랫폼을 사용하면 세 계층 모두 무료로 배포할 수 있습니다. RAG 엔진은 PyTorch + sentence-transformers를 위해 최소 2GB RAM이 필요합니다 — 플랫폼을 적절히 선택하십시오.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>설정</th><th>값</th><th>설정 위치</th><th>참고 사항</th><th>필수 여부</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>CHROMA_PERSIST_DIR</code></td>
+            <td><code>/data/chroma</code></td>
+            <td>Docker 환경 / 호스팅 환경 변수</td>
+            <td>재시작 시 데이터 유지를 위해 Docker 볼륨 또는 영구 디스크 사용</td>
+            <td><span class="badge-required">필수</span></td>
+          </tr>
+          <tr>
+            <td><code>UPLOAD_DIR</code></td>
+            <td><code>/uploads</code></td>
+            <td>Docker 환경 / 호스팅 환경 변수</td>
+            <td>영구 볼륨 마운트 필수 — 없으면 파일 손실</td>
+            <td><span class="badge-required">필수</span></td>
+          </tr>
+          <tr>
+            <td><code>ASPNETCORE_ENVIRONMENT</code></td>
+            <td><code>Production</code></td>
+            <td>백엔드 호스팅 환경 변수</td>
+            <td>개발자 예외 페이지 비활성화, 프로덕션 로깅 활성화</td>
+            <td><span class="badge-required">필수</span></td>
+          </tr>
+          <tr>
+            <td><code>AllowedOrigins</code></td>
+            <td><code>https://your-frontend.com</code></td>
+            <td><code>appsettings.Production.json</code></td>
+            <td>실제 프론트엔드 도메인으로 CORS 제한</td>
+            <td><span class="badge-required">필수</span></td>
+          </tr>
+          <tr>
+            <td><code>RagEngine__BaseUrl</code></td>
+            <td><code>https://your-rag.fly.dev</code></td>
+            <td><code>appsettings.Production.json</code></td>
+            <td>배포된 RAG 엔진 URL을 가리킵니다</td>
+            <td><span class="badge-required">필수</span></td>
+          </tr>
+          <tr>
+            <td><code>ConnectionStrings__DefaultConnection</code></td>
+            <td><code>Data Source=/data/documind.db</code></td>
+            <td>백엔드 환경 변수 또는 appsettings</td>
+            <td>영구 볼륨 경로 사용. 다중 서버의 경우 Supabase PostgreSQL로 전환.</td>
+            <td><span class="badge-required">필수</span></td>
+          </tr>
+          <tr>
+            <td><code>OPENAI_API_KEY</code> 또는 <code>ANTHROPIC_API_KEY</code></td>
+            <td><code>sk-...</code></td>
+            <td>RAG 엔진 호스팅 환경 변수</td>
+            <td>LLM 기반 답변을 활성화하는 경우에만 필요. Groq Cloud도 지원 (무료 티어).</td>
+            <td><span class="badge-optional">선택</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>&#127760; 무료 티어 배포 권장 사항</h3>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">&#128187; 프론트엔드 (React)</div>
+        <ul>
+          <li><strong>Vercel</strong> — 취미 플랜, 무료, GitHub에서 즉시 배포</li>
+          <li><strong>Netlify</strong> — 무료 티어, 월 100GB 대역폭</li>
+          <li><strong>Cloudflare Pages</strong> — 무료, 무제한 대역폭</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#128202; 백엔드 (.NET 8)</div>
+        <ul>
+          <li><strong>Railway</strong> — 무료 티어 (500MB RAM) — .NET API에 충분</li>
+          <li><strong>Fly.io</strong> — 무료 티어 (256MB RAM, 저렴하게 확장)</li>
+          <li><strong>Render</strong> — 무료 티어, 비활성 시 종료</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#129302; RAG 엔진 (Python/PyTorch)</div>
+        <ul>
+          <li><strong>Oracle Cloud Always Free</strong> &#9733; — 1 OCPU + 6GB ARM VM — PyTorch에 완벽</li>
+          <li><strong>Fly.io</strong> — $0.02/GB RAM — 가장 저렴한 유료 옵션</li>
+          <li><strong>Railway / Render 무료</strong> — 512MB RAM — PyTorch에 불충분</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">&#128190; 데이터베이스 및 벡터</div>
+        <ul>
+          <li><strong>SQLite</strong> — 단일 서버 유지 (볼륨만 마운트)</li>
+          <li><strong>Supabase</strong> — 무료 티어 PostgreSQL (500MB) — 다중 서버용</li>
+          <li><strong>ChromaDB</strong> — 동일 서버 유지 (단순 파일)</li>
+          <li><strong>Qdrant Cloud</strong> — 무료 티어 (1백만 벡터) — 대규모용</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>&#128161; 선택적 LLM 통합 (무료 옵션)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>옵션</th><th>모델</th><th>비용</th><th>설정</th></tr></thead>
+        <tbody>
+          <tr><td>Ollama (로컬)</td><td>llama3.2, mistral</td><td>무료</td><td>8GB RAM 필요. <code>OLLAMA_URL=http://localhost:11434</code> 설정</td></tr>
+          <tr><td>OpenAI API</td><td>gpt-4o-mini</td><td>~$0.15/1M 입력 토큰</td><td><code>OPENAI_API_KEY=sk-...</code> 추가</td></tr>
+          <tr><td>Anthropic API</td><td>claude-haiku-4-5</td><td>가장 저렴한 Claude 모델</td><td><code>ANTHROPIC_API_KEY=sk-ant-...</code> 추가</td></tr>
+          <tr><td>Groq Cloud</td><td>llama3, mixtral</td><td>무료 티어 이용 가능</td><td><code>GROQ_API_KEY=gsk_...</code> 추가</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+  function switchLang(lang) {
+    document.querySelectorAll('.lang-content').forEach(function(el) { el.style.display = 'none'; });
+    document.querySelectorAll('.lang-btn').forEach(function(el) { el.classList.remove('active'); });
+    document.getElementById('lang-' + lang).style.display = 'block';
+    document.getElementById('btn-' + lang).classList.add('active');
+  }
+</script>
+</body>
+</html>

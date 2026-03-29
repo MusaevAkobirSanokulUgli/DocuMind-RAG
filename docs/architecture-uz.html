@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMind RAG - Arxitektura Hujjati</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+        a { color: #8b5cf6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero {
+            background: linear-gradient(135deg, #1a1040 0%, #1e1b4b 50%, #0f172a 100%);
+            padding: 80px 40px 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.2) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-block;
+            background: rgba(139,92,246,0.15);
+            border: 1px solid rgba(139,92,246,0.4);
+            color: #c4b5fd;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+            animation: shimmer 4s ease-in-out infinite;
+        }
+        @keyframes shimmer { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.2); } }
+        .hero-tagline { font-size: 1.2rem; color: #94a3b8; max-width: 700px; margin: 0 auto 32px; }
+        .lang-badge {
+            display: inline-block;
+            background: #10b981;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+        }
+        .stats-row { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; margin-top: 8px; }
+        .stat-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 24px; min-width: 120px; }
+        .stat-num { font-size: 1.6rem; font-weight: 800; color: #a78bfa; }
+        .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+        .section { padding: 56px 0; }
+        .section-title {
+            font-size: 1.7rem; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-title::after {
+            content: ''; flex: 1; height: 2px;
+            background: linear-gradient(90deg, rgba(139,92,246,0.5), transparent);
+            border-radius: 2px; margin-left: 12px;
+        }
+        .section-subtitle { color: #64748b; margin-bottom: 32px; font-size: 0.97rem; }
+
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 28px; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+        .card:hover { border-color: #8b5cf6; box-shadow: 0 0 24px rgba(139,92,246,0.12); transform: translateY(-2px); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } .hero h1 { font-size: 2rem; } }
+
+        .pipeline { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 24px 0; }
+        .pipeline-step { flex: 1; min-width: 130px; background: #1e293b; border: 1px solid #334155; border-radius: 0; padding: 20px 16px; text-align: center; position: relative; transition: background 0.2s; }
+        .pipeline-step:first-child { border-radius: 12px 0 0 12px; }
+        .pipeline-step:last-child { border-radius: 0 12px 12px 0; }
+        .pipeline-step:hover { background: rgba(139,92,246,0.1); }
+        .pipeline-step::after { content: '→'; position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: #475569; font-size: 1.1rem; z-index: 1; }
+        .pipeline-step:last-child::after { display: none; }
+        .step-icon { font-size: 1.6rem; margin-bottom: 8px; }
+        .step-title { font-size: 0.8rem; font-weight: 700; color: #f1f5f9; }
+        .step-detail { font-size: 0.7rem; color: #64748b; margin-top: 4px; }
+
+        .arch-diagram { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 40px 24px; margin: 24px 0; }
+        .arch-layer { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+        .arch-box { background: #1e293b; border: 2px solid #334155; border-radius: 12px; padding: 14px 22px; text-align: center; min-width: 160px; transition: all 0.2s; }
+        .arch-box.blue { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+        .arch-box.purple { border-color: #8b5cf6; background: rgba(139,92,246,0.08); }
+        .arch-box.green { border-color: #10b981; background: rgba(16,185,129,0.08); }
+        .arch-box.orange { border-color: #f59e0b; background: rgba(245,158,11,0.08); }
+        .arch-box.red { border-color: #ef4444; background: rgba(239,68,68,0.08); }
+        .arch-box-title { font-weight: 700; font-size: 0.9rem; color: #f1f5f9; }
+        .arch-box-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 3px; }
+        .arch-arrow { text-align: center; color: #475569; font-size: 1.4rem; margin: 4px 0; }
+        .arch-label { text-align: center; font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 8px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        thead th { background: #1e293b; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 16px; text-align: left; border-bottom: 2px solid #334155; }
+        tbody td { padding: 12px 16px; border-bottom: 1px solid #1e293b; font-size: 0.9rem; color: #cbd5e1; vertical-align: top; }
+        tbody tr:hover { background: rgba(139,92,246,0.05); }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .badge-green { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        .badge-purple { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+        .badge-orange { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+        .badge-red { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+        .code-block { background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 20px 24px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; color: #e2e8f0; overflow-x: auto; margin: 12px 0; line-height: 1.7; }
+        .code-block .comment { color: #475569; }
+        .code-block .cmd { color: #34d399; }
+        .code-block .str { color: #fbbf24; }
+
+        .feature-item { display: flex; gap: 16px; align-items: flex-start; padding: 18px 0; border-bottom: 1px solid #1e293b; }
+        .feature-item:last-child { border-bottom: none; }
+        .feature-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
+        .feature-title { font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+        .feature-desc { font-size: 0.9rem; color: #94a3b8; }
+
+        .problem-list { list-style: none; margin-top: 16px; }
+        .problem-list li { padding: 12px 0; border-bottom: 1px solid #1e293b; color: #94a3b8; display: flex; align-items: flex-start; gap: 10px; font-size: 0.95rem; }
+        .problem-list li::before { content: '⚠'; font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+        .security-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        @media (max-width: 600px) { .security-grid { grid-template-columns: 1fr; } }
+        .security-card { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 12px; padding: 16px 18px; }
+        .security-card h4 { color: #34d399; font-size: 0.9rem; margin-bottom: 6px; }
+        .security-card p { color: #94a3b8; font-size: 0.85rem; }
+
+        .highlight-box { background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.25); border-radius: 12px; padding: 18px 22px; margin: 16px 0; }
+        .highlight-box strong { color: #a78bfa; }
+
+        footer { background: #020617; border-top: 1px solid #1e293b; padding: 32px 40px; text-align: center; color: #475569; font-size: 0.85rem; }
+        footer span { color: #8b5cf6; }
+        hr { border: none; border-top: 1px solid #1e293b; margin: 0; }
+    </style>
+</head>
+<body>
+
+<!-- QAHRAMON QISM -->
+<section class="hero">
+    <div class="hero-badge">Loyiha 2 &nbsp;·&nbsp; RAG / Hujjat intellekti</div>
+    <h1>DocuMind</h1>
+    <p class="hero-tagline">Manba iqtiboslari bilan intellektual hujjat savol-javob uchun RAG tizimi — tashqi API bog'liqliksiz to'liq mahalliy ishlaydigan.</p>
+    <div><span class="lang-badge">🇺🇿 O'zbek tili</span></div>
+    <div class="stats-row">
+        <div class="stat-item"><div class="stat-num">52</div><div class="stat-label">Fayl</div></div>
+        <div class="stat-item"><div class="stat-num">4,954</div><div class="stat-label">Kod satrlari</div></div>
+        <div class="stat-item"><div class="stat-num">384</div><div class="stat-label">Embedding o'lchami</div></div>
+        <div class="stat-item"><div class="stat-num">512</div><div class="stat-label">Bo'lak hajmi (belgi)</div></div>
+        <div class="stat-item"><div class="stat-num">~30ms</div><div class="stat-label">So'rov kechikishi</div></div>
+    </div>
+</section>
+
+<hr>
+
+<div class="container">
+
+    <!-- MUAMMO BAYONI -->
+    <section class="section">
+        <h2 class="section-title">🎯 Muammo bayoni</h2>
+        <p class="section-subtitle">Nima uchun an'anaviy hujjat qidiruvi AI savol-javob uchun mos kelmaydi</p>
+        <div class="card">
+            <p style="color:#94a3b8; margin-bottom:16px;">Tashkilotlar ulkan hujjat kutubxonalarini to'playdi — PDF, Word fayllar, texnik qo'llanmalar, tadqiqot maqolalari — ammo bu hujjatlardan aniq javoblar olish qiyin bo'lib qolmoqda. Kalit so'z qidiruvi kontekstsiz ko'plab natijalar qaytaradi; LLM-lar asossiz "gallyutsinatsiya" qiladi; va ko'pchilik RAG yechimlar har bir so'rov uchun qimmat bulut API chaqiruvlarini talab qiladi.</p>
+            <ul class="problem-list">
+                <li>Kalit so'z qidiruvi javob emas, hujjat sarlavhalarini qaytaradi — foydalanuvchilar tegishli ma'lumotni topish uchun butun hujjatlarni o'qishlari kerak.</li>
+                <li>Qidiruvsiz LLM-lar o'qitish ma'lumotlarida bo'lmagan faktlarni "gallyutsinatsiya" qiladi va ishonchli noto'g'ri javoblar beradi.</li>
+                <li>Bulut asosidagi RAG yechimlari uchinchi tomon API-lariga sezgir hujjat mazmunini yuboradi va ma'lumotlar maxfiyligini xavf ostiga qo'yadi.</li>
+                <li>Iqtibos mexanizmi yo'q: hatto AI to'g'ri javob bergan taqdirda ham foydalanuvchilar qaysi manba hujjatidan ekanligini tekshira olmaydi.</li>
+                <li>Katta miqyosda yuqori so'rov narxi: bulut embedding API-lari katta hujjat to'plamlari uchun oyiga minglab dollar turishi mumkin.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ARXITEKTURA -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🏗 Arxitektura</h2>
+        <p class="section-subtitle">Mahalliy embedding modeli va vektor ma'lumotlar bazasi bilan to'rt xizmatli arxitektura</p>
+        <div class="arch-diagram">
+            <div class="arch-label">Mijoz qatlami</div>
+            <div class="arch-layer">
+                <div class="arch-box blue">
+                    <div class="arch-box-title">React 18 + Vite</div>
+                    <div class="arch-box-sub">Port 3001 · Hujjat UI va Analytics</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ REST API / JSON</div>
+            <div class="arch-label">Orchestration qatlami</div>
+            <div class="arch-layer">
+                <div class="arch-box purple">
+                    <div class="arch-box-title">.NET 8 Web API</div>
+                    <div class="arch-box-sub">Port 5001 · Hujjat boshqaruvi</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ REST API / JSON</div>
+            <div class="arch-label">RAG Engine qatlami</div>
+            <div class="arch-layer">
+                <div class="arch-box green">
+                    <div class="arch-box-title">Python FastAPI</div>
+                    <div class="arch-box-sub">Port 8000 · Embedding va qidiruv</div>
+                </div>
+            </div>
+            <div class="arch-arrow">↕ Vektor operatsiyalar</div>
+            <div class="arch-label">Saqlash qatlami</div>
+            <div class="arch-layer">
+                <div class="arch-box orange">
+                    <div class="arch-box-title">ChromaDB</div>
+                    <div class="arch-box-sub">HNSW vektor indeksi · diskda saqlanadi</div>
+                </div>
+                <div class="arch-box red">
+                    <div class="arch-box-title">all-MiniLM-L6-v2</div>
+                    <div class="arch-box-sub">Mahalliy model · 384-o'lchamli embeddinglar</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- RAG PIPELINE -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">⚙ RAG Pipeline</h2>
+        <p class="section-subtitle">Hujjat kiritish va so'rov qayta ishlashning uchidan uchiga oqimi</p>
+        <div class="card" style="padding: 28px 20px;">
+            <p style="color:#94a3b8; font-size:0.9rem; margin-bottom:20px;"><strong style="color:#a78bfa;">Kiritish Pipeline</strong> — hujjat yuklanganda ishga tushadi:</p>
+            <div class="pipeline">
+                <div class="pipeline-step"><div class="step-icon">📄</div><div class="step-title">Yuklash</div><div class="step-detail">PDF / DOCX / TXT / MD</div></div>
+                <div class="pipeline-step"><div class="step-icon">📝</div><div class="step-title">Ajratib olish</div><div class="step-detail">Xom matnni chiqarish</div></div>
+                <div class="pipeline-step"><div class="step-icon">✂</div><div class="step-title">Bo'laklash</div><div class="step-detail">512 belgi, 50 ustma-ust</div></div>
+                <div class="pipeline-step"><div class="step-icon">🔢</div><div class="step-title">Embedding</div><div class="step-detail">all-MiniLM-L6-v2</div></div>
+                <div class="pipeline-step"><div class="step-icon">💾</div><div class="step-title">Saqlash</div><div class="step-detail">ChromaDB HNSW</div></div>
+            </div>
+            <p style="color:#94a3b8; font-size:0.9rem; margin: 24px 0 20px;"><strong style="color:#a78bfa;">So'rov Pipeline</strong> — har bir foydalanuvchi savoliga ishga tushadi:</p>
+            <div class="pipeline">
+                <div class="pipeline-step"><div class="step-icon">❓</div><div class="step-title">Savol</div><div class="step-detail">Foydalanuvchi savoli</div></div>
+                <div class="pipeline-step"><div class="step-icon">🔢</div><div class="step-title">Embedding</div><div class="step-detail">Bir xil model</div></div>
+                <div class="pipeline-step"><div class="step-icon">🔍</div><div class="step-title">Qidiruv</div><div class="step-detail">HNSW ANN qidiruv</div></div>
+                <div class="pipeline-step"><div class="step-icon">🏆</div><div class="step-title">Reytinglash</div><div class="step-detail">Ball asosli filtr</div></div>
+                <div class="pipeline-step"><div class="step-icon">💬</div><div class="step-title">Javob</div><div class="step-detail">Iqtiboslar bilan</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TEXNOLOGIYA STEKI -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🛠 Texnologiya steki</h2>
+        <p class="section-subtitle">Mahalliy, maxfiylikni saqlaydigan AI ga e'tibor qaratgan to'liq stack</p>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table>
+                <thead>
+                    <tr><th>Qatlam</th><th>Texnologiya</th><th>Versiya</th><th>Maqsad</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">Frontend</span></td><td>React</td><td>18</td><td>Hujjat yuklash UI va savol-javob chat</td></tr>
+                    <tr><td><span class="badge badge-blue">Frontend</span></td><td>Vite</td><td>5.x</td><td>Juda tez dev server va bundler</td></tr>
+                    <tr><td><span class="badge badge-blue">Frontend</span></td><td>TypeScript</td><td>5.x</td><td>Mijoz bo'yicha tip xavfsizligi</td></tr>
+                    <tr><td><span class="badge badge-blue">Frontend</span></td><td>Recharts</td><td>2.x</td><td>Analytics dashboard grafiklari</td></tr>
+                    <tr><td><span class="badge badge-purple">Backend</span></td><td>.NET</td><td>8.0</td><td>REST API, hujjat saqlash orchestration</td></tr>
+                    <tr><td><span class="badge badge-purple">Backend</span></td><td>Entity Framework Core</td><td>8.x</td><td>Hujjat metadata saqlash</td></tr>
+                    <tr><td><span class="badge badge-green">RAG Engine</span></td><td>Python FastAPI</td><td>0.110+</td><td>Asinxron embedding va qidiruv xizmati</td></tr>
+                    <tr><td><span class="badge badge-green">RAG Engine</span></td><td>sentence-transformers</td><td>2.x</td><td>all-MiniLM-L6-v2 (384 o'lchov, mahalliy)</td></tr>
+                    <tr><td><span class="badge badge-green">RAG Engine</span></td><td>ChromaDB</td><td>0.4+</td><td>Saqlashli HNSW vektor ombori</td></tr>
+                    <tr><td><span class="badge badge-orange">Parsing</span></td><td>PyMuPDF / python-docx</td><td>latest</td><td>PDF va DOCX matnini ajratib olish</td></tr>
+                    <tr><td><span class="badge badge-orange">Infra</span></td><td>Docker va Compose</td><td>24+</td><td>Ko'p xizmatli konteyner orchestration</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ASOSIY XUSUSIYATLAR -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">✨ Asosiy xususiyatlar</h2>
+        <p class="section-subtitle">Tashqi API bog'liqligsiz intellektual hujjat savol-javob</p>
+        <div class="grid-2">
+            <div class="card">
+                <div class="feature-item">
+                    <span class="feature-icon">📂</span>
+                    <div><div class="feature-title">Ko'p formatli hujjat yuklash</div><div class="feature-desc">PDF, DOCX, TXT va Markdown-ni qo'llab-quvvatlaydi. Matn ajratib olish formatga mos: PDF uchun PyMuPDF, Word hujjatlari uchun python-docx.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✂</span>
+                    <div><div class="feature-title">Rekursiv bo'laklash</div><div class="feature-desc">Hujjatlar 50 belgilik ustma-ust bilan 512 belgilik bo'laklarga bo'linadi. Ustma-ust bo'lak chegaralarida kontekst yo'qolishini oldini oladi.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔢</span>
+                    <div><div class="feature-title">Mahalliy Embeddinglar</div><div class="feature-desc">Mahalliy ishlaydigan <code style="color:#a78bfa;background:#0f172a;padding:1px 6px;border-radius:4px;">all-MiniLM-L6-v2</code> (384 o'lchov) dan foydalanadi. Nol tashqi API chaqiruvlari — hujjatlaringiz infratuzilmangizdan chiqmaydi.</div></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="feature-item">
+                    <span class="feature-icon">🔍</span>
+                    <div><div class="feature-title">HNSW Vektor qidiruvi</div><div class="feature-desc">ChromaDB ning HNSW indeksi LLM-siz 30–100ms kechikish bilan taxminiy eng yaqin qo'shni qidiruvini ta'minlaydi.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📎</span>
+                    <div><div class="feature-title">Manba iqtiboslari</div><div class="feature-desc">Har bir javob aniq manba hujjati va bo'lakka qaytaradigan iqtiboslarni o'z ichiga oladi. Foydalanuvchilar har bir da'voni asl matn bilan tekshirishi mumkin.</div></div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <div><div class="feature-title">Analytics Dashboard</div><div class="feature-desc">So'rov hajmini, top hujjatlarni, o'rtacha dolzarblik ko'rsatkichlarini va vaqt o'tishi bilan so'rov kechikishini ko'rsatuvchi Recharts asosidagi analytics.</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="highlight-box" style="margin-top:20px;">
+            <strong>Tashqi API bog'liqliqlari yo'q:</strong> Embedding modeli sentence-transformers yordamida mahalliy ishlaydi. So'rov kechikishi LLM-siz taxminan 30–100ms ni tashkil etadi — LLM generatsiya qadamini qo'shish apparat holatiga qarab 1–5 soniya qo'shadi.
+        </div>
+    </section>
+
+    <!-- API ENDPOINTLAR -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🔌 API Endpointlar</h2>
+        <p class="section-subtitle">.NET 8 orchestration qatlami va Python FastAPI RAG engine bo'yicha REST endpointlar</p>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table>
+                <thead>
+                    <tr><th>Metod</th><th>Endpoint</th><th>Tavsif</th><th>Xizmat</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/api/documents/upload</td><td>Hujjat yuklash (multipart/form-data)</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/documents</td><td>Metadata bilan barcha yuklangan hujjatlar ro'yxati</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/documents/:id</td><td>Bitta hujjat va uning bo'laklarini olish</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-red">DELETE</span></td><td>/api/documents/:id</td><td>Hujjatni o'chirish va vektorlarini olib tashlash</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/api/query</td><td>Tabiiy til savolini yuborish</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/api/analytics/stats</td><td>So'rov soni, kechikish, top hujjatlar</td><td>.NET API</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/rag/ingest</td><td>Hujjat bo'laklarini ChromaDB-ga kiritish</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-blue">POST</span></td><td>/rag/query</td><td>So'rovni embedding qilish va vektor qidiruv</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-red">DELETE</span></td><td>/rag/document/:id</td><td>Hujjat uchun barcha vektorlarni olib tashlash</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/rag/health</td><td>RAG engine holati va model holati</td><td>FastAPI</td></tr>
+                    <tr><td><span class="badge badge-green">GET</span></td><td>/rag/collections</td><td>ChromaDB to'plamlari va hajmlarini ro'yxatga olish</td><td>FastAPI</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- TEZKOR BOSHLASH -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🚀 Tezkor boshlash</h2>
+        <p class="section-subtitle">DocuMind-ni ishga tushirish — embedding modeli birinchi ishga tushirishda avtomatik yuklab olinadi</p>
+        <div class="card">
+            <p style="color:#94a3b8; margin-bottom:12px;"><strong style="color:#f1f5f9;">1-qadam:</strong> Klonlash va loyihaga kirish</p>
+            <div class="code-block">
+<span class="cmd">git clone</span> https://github.com/your-org/rag-documind.git
+<span class="cmd">cd</span> rag-documind
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">2-qadam:</strong> Barcha xizmatlarni ishga tushirish (model birinchi ishga tushirishda ~90 MB yuklab olinadi)</p>
+            <div class="code-block">
+<span class="cmd">docker compose up</span> --build -d
+<span class="comment"># Xizmatlar ishga tushmoqda:</span>
+<span class="comment">#  ✓ frontend    → http://localhost:3001</span>
+<span class="comment">#  ✓ dotnet-api  → http://localhost:5001</span>
+<span class="comment">#  ✓ rag-engine  → http://localhost:8000</span>
+<span class="comment">#  ✓ chromadb    → http://localhost:8001 (ichki)</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">3-qadam:</strong> API orqali hujjat yuklash</p>
+            <div class="code-block">
+<span class="cmd">curl</span> -X POST http://localhost:5001/api/documents/upload \
+  -F <span class="str">"file=@my_document.pdf"</span> \
+  -F <span class="str">"title=Mening hujjatim"</span>
+<span class="comment"># Qaytadi: {"id": "abc123", "chunks": 42, "status": "indexed"}</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">4-qadam:</strong> Savol berish</p>
+            <div class="code-block">
+<span class="cmd">curl</span> -X POST http://localhost:5001/api/query \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"question": "Asosiy natijalar nima?", "top_k": 5}'</span>
+<span class="comment"># Qaytadi: {"answer": "...", "citations": [{"doc": "...", "chunk": "..."}]}</span>
+            </div>
+            <p style="color:#94a3b8; margin: 16px 0 12px;"><strong style="color:#f1f5f9;">5-qadam:</strong> <a href="http://localhost:3001">http://localhost:3001</a> da UI-ni oching</p>
+        </div>
+    </section>
+
+    <!-- XAVFSIZLIK -->
+    <section class="section" style="padding-top:0">
+        <h2 class="section-title">🔒 Xavfsizlik mulohazalari</h2>
+        <p class="section-subtitle">Mahalliy model bajarish bilan maxfiylik-birinchi dizayn</p>
+        <div class="security-grid">
+            <div class="security-card">
+                <h4>🏠 Mahalliy model bajarish</h4>
+                <p>all-MiniLM-L6-v2 modeli to'liq on-premises ishlaydi. Hujjat mazmuni va so'rov matni infratuzilmangizdan chiqmaydi.</p>
+            </div>
+            <div class="security-card">
+                <h4>📁 Fayl turi tekshiruvi</h4>
+                <p>Yuklangan fayllar ruxsat ro'yxatiga (PDF, DOCX, TXT, MD) qarshi tekshiriladi. Fayl mazmuni kengaytmadan tashqari tekshiriladi — MIME turi ham nazorat qilinadi.</p>
+            </div>
+            <div class="security-card">
+                <h4>📏 Fayl hajmi cheklovlari</h4>
+                <p>Maksimal yuklash hajmi API gateway darajasida qo'llaniladi (sukut bo'yicha 50 MB). Katta fayllar parsing qatlamiga etishgunga qadar rad etiladi.</p>
+            </div>
+            <div class="security-card">
+                <h4>🗂 Vektor izolyatsiyasi</h4>
+                <p>Har bir hujjatning vektorlari nomlangan ChromaDB to'plamida saqlanadi. Hujjatni o'chirish uning vektorlarini indeksdan butunlay olib tashlaydi.</p>
+            </div>
+            <div class="security-card">
+                <h4>🔗 Iqtibos yaxlitligi</h4>
+                <p>Har bir javob foydalanuvchilarga AI tomonidan yaratilgan javoblarni asl matnlar bilan tekshirishga imkon beradigan bo'lak darajasidagi iqtiboslarni o'z ichiga oladi.</p>
+            </div>
+            <div class="security-card">
+                <h4>🐳 Tarmoq izolyatsiyasi</h4>
+                <p>ChromaDB ichki Docker tarmog'ida ishlaydi va xostga ochiq emas. Faqat frontend va .NET API tashqaridan foydalanish mumkin.</p>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<footer>
+    <p>DocuMind &nbsp;·&nbsp; AI/ML Portfolio &nbsp;·&nbsp; <span>Python FastAPI</span>, <span>.NET 8</span>, <span>ChromaDB</span>, <span>sentence-transformers</span> bilan qurilgan</p>
+    <p style="margin-top:8px; color:#334155;">Portfel namoyishi uchun yaratilgan hujjat.</p>
+</footer>
+
+</body>
+</html>
